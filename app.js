@@ -13,9 +13,6 @@ const { recordingService } = require('./services/recording-service');
 const VoiceResponse = require('twilio').twiml.VoiceResponse;
 
 const app = express();
-
-app.use(express.static('public'));
-
 ExpressWs(app);
 
 const PORT = process.env.PORT || 3000;
