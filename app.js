@@ -14,7 +14,7 @@ const VoiceResponse = require('twilio').twiml.VoiceResponse;
 
 const app = express();
 
-app.use(express.static('public'))
+app.use(express.static('public'));
 
 ExpressWs(app);
 
