@@ -15,7 +15,7 @@ const VoiceResponse = require('twilio').twiml.VoiceResponse;
 const app = express();
 ExpressWs(app);
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 5000;
 
 app.get('/', (req, res) => {
   try {
@@ -30,7 +30,7 @@ app.post('/incoming', (req, res) => {
     const response = new VoiceResponse();
     const connect = response.connect();
     connect.stream({ url: `wss://${process.env.SERVER}/connection` });
-  
+
     res.type('text/xml');
     res.end(response.toString());
   } catch (err) {
@@ -48,7 +48,7 @@ app.ws('/connection', (ws) => {
     const streamService = new StreamService(ws);
     const transcriptionService = new TranscriptionService();
     const ttsService = new TextToSpeechService({});
-  
+
     let marks = [];
     let interactionCount = 0;
     let isSpeaking = false;
@@ -57,18 +57,18 @@ app.ws('/connection', (ws) => {
       console.error('Critical transcription service error:', error);
       // Handle the error appropriately (e.g., end the call, notify the user)
     });
-  
+
     ws.on('message', function message(data) {
       const msg = JSON.parse(data);
       if (msg.event === 'start') {
         streamSid = msg.start.streamSid;
         callSid = msg.start.callSid;
-        
+
         streamService.setStreamSid(streamSid);
         gptService.setCallSid(callSid);
         // gptService.setCallerPhoneNumber(msg.start.from);
         gptService.setCallerPhoneNumber('0501575591');
-    
+
         // Set RECORDING_ENABLED='true' in .env to record calls
         recordingService(ttsService, callSid).then(() => {
           console.log(`Twilio -> Starting Media Stream for ${streamSid}`.underline.red);
@@ -94,26 +94,26 @@ app.ws('/connection', (ws) => {
         transcriptionService.stop();  // Stop the transcription service
       }
     });
-  
+
     transcriptionService.on('transcription', async (text) => {
       if (!text) { return; }
       console.log(`Interaction ${interactionCount} – STT -> GPT: ${text}`.yellow);
       gptService.completion(text, interactionCount);
       interactionCount += 1;
     });
-    
+
     gptService.on('gptreply', async (gptReply, icount) => {
       console.log(`Interaction ${icount}: GPT -> TTS: ${gptReply.partialResponse}`.green);
       isSpeaking = true;
       transcriptionService.pause();
       ttsService.generate(gptReply, icount);
     });
-  
+
     ttsService.on('speech', (responseIndex, audio, label, icount) => {
       console.log(`Interaction ${icount}: TTS -> TWILIO: ${label}`.blue);
       streamService.buffer(responseIndex, audio);
     });
-  
+
     streamService.on('audiosent', (markLabel) => {
       marks.push(markLabel);
     });
