@@ -29,23 +29,23 @@ class TextToSpeechService extends EventEmitter {
     console.log('mixing audio');
     const speech = Buffer.isBuffer(speechBuffer) ? speechBuffer : Buffer.from(speechBuffer, 'base64');
     const background = this.backgroundAudio;
-    
+
     const mixedBuffer = Buffer.alloc(speech.length);
-    
+
     for (let i = 0; i < speech.length; i++) {
       const speechSample = speech[i] * 0.8;
       const backgroundSample = background[i % background.length] * 0.2;
       mixedBuffer[i] = Math.min(255, Math.max(0, speechSample + backgroundSample));
     }
-    
+
     return mixedBuffer.toString('base64');
   }
 
   async generate(gptReply, interactionCount) {
     const { partialResponse } = gptReply;
-  
+
     if (!partialResponse) { return; }
-  
+
     try {
       const outputFormat = 'ulaw_8000';
       const response = await fetch(
@@ -67,10 +67,10 @@ class TextToSpeechService extends EventEmitter {
           }),
         }
       );
-      
+
       const audioArrayBuffer = await response.arrayBuffer();
       const speechAudio = Buffer.from(audioArrayBuffer);
-      
+
       let finalAudio;
       if (this.backgroundAudio) {
         finalAudio = this.mixAudio(speechAudio, this.backgroundAudio);

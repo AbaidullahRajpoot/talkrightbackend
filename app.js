@@ -54,7 +54,7 @@ app.ws('/connection', (ws) => {
       // Handle the error appropriately (e.g., end the call, notify the user)
     });
 
-    wss.on('message', function message(data) {
+    ws.on('message', function message(data) {
       const msg = JSON.parse(data);
       if (msg.event === 'start') {
         streamSid = msg.start.streamSid;
