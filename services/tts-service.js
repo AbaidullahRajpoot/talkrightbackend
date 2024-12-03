@@ -17,6 +17,7 @@ class TextToSpeechService extends EventEmitter {
 
   async loadBackgroundAudio() {
     try {
+      console.log("loading background audio")
       const audioPath = path.join(__dirname, '../assets/background.mp3');
       this.backgroundAudio = await fs.readFile(audioPath);
     } catch (err) {
@@ -25,6 +26,7 @@ class TextToSpeechService extends EventEmitter {
   }
 
   mixAudio(speechBuffer) {
+    console.log("mixing audio")
     const speech = Buffer.isBuffer(speechBuffer) ? speechBuffer : Buffer.from(speechBuffer, 'base64');
     const background = this.backgroundAudio;
     
