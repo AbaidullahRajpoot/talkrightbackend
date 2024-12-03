@@ -10,6 +10,7 @@ class AudioMixerService {
   }
 
   mixAudioWithBackground(speechAudio) {
+    console.log("entering mixAudioWithBackground")
     // For now, we'll just concatenate the audio
     // In a production environment, you'd want to properly mix the audio streams
     return Buffer.concat([this.backgroundMusic, Buffer.from(speechAudio, 'base64')]);
