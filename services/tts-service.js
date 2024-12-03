@@ -13,16 +13,26 @@ class TextToSpeechService extends EventEmitter {
     this.speechBuffer = {};
     this.backgroundAudio = null;
     this.loadBackgroundAudio();
+    this.startBackgroundLoop();
   }
 
   async loadBackgroundAudio() {
     try {
-      console.log('loading background audio');
+      console.log('Loading background audio...');
       const audioPath = path.join(__dirname, '../audio/ambient-noise.mp3');
       this.backgroundAudio = await fs.readFile(audioPath);
+      console.log('Background audio loaded successfully:', this.backgroundAudio.length, 'bytes');
     } catch (err) {
       console.error('Error loading background audio:', err);
     }
+  }
+
+  startBackgroundLoop() {
+    setInterval(() => {
+      if (this.backgroundAudio) {
+        this.emit('background', this.backgroundAudio.toString('base64'));
+      }
+    }, 10000);
   }
 
   async generate(gptReply, interactionCount) {
