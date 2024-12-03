@@ -17,13 +17,6 @@ ExpressWs(app);
 
 const PORT = process.env.PORT || 5000;
 
-app.get('/', (req, res) => {
-  try {
-    res.send('Apps worked successfully');
-  } catch (err) {
-    console.log(err);
-  }
-});
 
 app.post('/incoming', (req, res) => {
   try {
@@ -33,6 +26,9 @@ app.post('/incoming', (req, res) => {
 
     res.type('text/xml');
     res.end(response.toString());
+
+    console.log('response',response);
+    
   } catch (err) {
     console.log(err);
   }
@@ -58,7 +54,7 @@ app.ws('/connection', (ws) => {
       // Handle the error appropriately (e.g., end the call, notify the user)
     });
 
-    ws.on('message', function message(data) {
+    wss.on('message', function message(data) {
       const msg = JSON.parse(data);
       if (msg.event === 'start') {
         streamSid = msg.start.streamSid;
