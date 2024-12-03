@@ -13,26 +13,32 @@ class TextToSpeechService extends EventEmitter {
     this.speechBuffer = {};
     this.backgroundAudio = null;
     this.loadBackgroundAudio();
-    this.startBackgroundLoop();
   }
 
   async loadBackgroundAudio() {
     try {
-      console.log('Loading background audio...');
-      const audioPath = path.join(__dirname, '../audio/ambient-noise.mp3');
+      console.log('loading background audio');
+      const audioPath = path.join(__dirname, '../assets/background.mp3');
       this.backgroundAudio = await fs.readFile(audioPath);
-      console.log('Background audio loaded successfully:', this.backgroundAudio.length, 'bytes');
     } catch (err) {
       console.error('Error loading background audio:', err);
     }
   }
 
-  startBackgroundLoop() {
-    setInterval(() => {
-      if (this.backgroundAudio) {
-        this.emit('background', this.backgroundAudio.toString('base64'));
-      }
-    }, 10000);
+  mixAudio(speechBuffer) {
+    console.log('mixing audio');
+    const speech = Buffer.isBuffer(speechBuffer) ? speechBuffer : Buffer.from(speechBuffer, 'base64');
+    const background = this.backgroundAudio;
+
+    const mixedBuffer = Buffer.alloc(speech.length);
+
+    for (let i = 0; i < speech.length; i++) {
+      const speechSample = speech[i] * 0.99;
+      const backgroundSample = background[i % background.length] * 0.01;
+      mixedBuffer[i] = Math.min(255, Math.max(0, speechSample + backgroundSample));
+    }
+
+    return mixedBuffer.toString('base64');
   }
 
   async generate(gptReply, interactionCount) {
@@ -64,12 +70,15 @@ class TextToSpeechService extends EventEmitter {
 
       const audioArrayBuffer = await response.arrayBuffer();
       const speechAudio = Buffer.from(audioArrayBuffer);
-      
+
+      let finalAudio;
       if (this.backgroundAudio) {
-        this.emit('background', this.backgroundAudio.toString('base64'));
+        finalAudio = this.mixAudio(speechAudio, this.backgroundAudio);
+      } else {
+        finalAudio = speechAudio.toString('base64');
       }
 
-      this.emit('speech', 0, speechAudio.toString('base64'), partialResponse, interactionCount);
+      this.emit('speech', 0, finalAudio, partialResponse, interactionCount);
     } catch (err) {
       console.error('Error occurred in TextToSpeech service');
       console.error(err);
