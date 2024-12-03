@@ -18,7 +18,7 @@ class TextToSpeechService extends EventEmitter {
   async loadBackgroundAudio() {
     try {
       console.log('loading background audio');
-      const audioPath = path.join(__dirname, '../assets/ambient-noise.mp3');
+      const audioPath = path.join(__dirname, '../audio/ambient-noise.mp3');
       this.backgroundAudio = await fs.readFile(audioPath);
     } catch (err) {
       console.error('Error loading background audio:', err);
