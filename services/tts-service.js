@@ -33,8 +33,8 @@ class TextToSpeechService extends EventEmitter {
     const mixedBuffer = Buffer.alloc(speech.length);
 
     for (let i = 0; i < speech.length; i++) {
-      const speechSample = speech[i] * 0.95;
-      const backgroundSample = background[i % background.length] * 0.05;
+      const speechSample = speech[i] * 0.98;
+      const backgroundSample = background[i % background.length] * 0.02;
       mixedBuffer[i] = Math.min(255, Math.max(0, speechSample + backgroundSample));
     }
 
