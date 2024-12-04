@@ -9,6 +9,7 @@ const { StreamService } = require('./services/stream-service');
 const { TranscriptionService } = require('./services/transcription-service');
 const { TextToSpeechService } = require('./services/tts-service');
 const { recordingService } = require('./services/recording-service');
+const { BackgroundAudioService } = require('./services/background-audio-service');
 
 const VoiceResponse = require('twilio').twiml.VoiceResponse;
 
@@ -44,6 +45,7 @@ app.ws('/connection', (ws) => {
     const streamService = new StreamService(ws);
     const transcriptionService = new TranscriptionService();
     const ttsService = new TextToSpeechService({});
+    const backgroundAudioService = new BackgroundAudioService();
 
     let marks = [];
     let interactionCount = 0;
@@ -75,7 +77,11 @@ app.ws('/connection', (ws) => {
         }).catch(err => console.error('Error in recordingService:', err));
       } else if (msg.event === 'media') {
         if (!isSpeaking) {
-          transcriptionService.send(msg.media.payload);
+          // Mix the incoming audio with background audio
+          const mixedAudio = backgroundAudioService.mixWithCallAudio(
+            Buffer.from(msg.media.payload, 'base64')
+          );
+          transcriptionService.send(mixedAudio);
         }
       } else if (msg.event === 'mark') {
         const label = msg.mark.name;
