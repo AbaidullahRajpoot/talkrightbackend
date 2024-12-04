@@ -9,7 +9,6 @@ const { StreamService } = require('./services/stream-service');
 const { TranscriptionService } = require('./services/transcription-service');
 const { TextToSpeechService } = require('./services/tts-service');
 const { recordingService } = require('./services/recording-service');
-const { BackgroundAudioService } = require('./services/background-audio-service');
 
 const VoiceResponse = require('twilio').twiml.VoiceResponse;
 
@@ -45,7 +44,6 @@ app.ws('/connection', (ws) => {
     const streamService = new StreamService(ws);
     const transcriptionService = new TranscriptionService();
     const ttsService = new TextToSpeechService({});
-    const backgroundAudioService = new BackgroundAudioService(ws);
 
     let marks = [];
     let interactionCount = 0;
@@ -64,10 +62,10 @@ app.ws('/connection', (ws) => {
 
         streamService.setStreamSid(streamSid);
         gptService.setCallSid(callSid);
+        // gptService.setCallerPhoneNumber(msg.start.from);
         gptService.setCallerPhoneNumber('0501575591');
 
-        backgroundAudioService.start();
-
+        // Set RECORDING_ENABLED='true' in .env to record calls
         recordingService(ttsService, callSid).then(() => {
           console.log(`Twilio -> Starting Media Stream for ${streamSid}`.underline.red);
           isSpeaking = true;
@@ -90,7 +88,6 @@ app.ws('/connection', (ws) => {
       } else if (msg.event === 'stop') {
         console.log(`Twilio -> Media stream ${streamSid} ended.`.underline.red);
         transcriptionService.stop();  // Stop the transcription service
-        backgroundAudioService.stop();
       }
     });
 
