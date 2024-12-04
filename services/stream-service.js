@@ -62,7 +62,9 @@ class StreamService extends EventEmitter {
       })
     );
 
-    this.backgroundAudio.start();
+    setTimeout(() => {
+      this.backgroundAudio.start();
+    }, 1000);
     
     this.emit('audiosent', markLabel);
   }
