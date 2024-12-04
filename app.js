@@ -9,6 +9,7 @@ const { StreamService } = require('./services/stream-service');
 const { TranscriptionService } = require('./services/transcription-service');
 const { TextToSpeechService } = require('./services/tts-service');
 const { recordingService } = require('./services/recording-service');
+const { BackgroundAudioService } = require('./services/background-audio-service');
 
 const VoiceResponse = require('twilio').twiml.VoiceResponse;
 
@@ -17,6 +18,7 @@ ExpressWs(app);
 
 const PORT = process.env.PORT || 5000;
 
+const backgroundAudioService = new BackgroundAudioService();
 
 app.post('/incoming', (req, res) => {
   try {
