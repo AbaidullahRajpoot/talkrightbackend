@@ -80,6 +80,7 @@ app.ws('/connection', (ws) => {
       } else if (msg.event === 'media') {
         if (!isSpeaking) {
           console.log('sending media');
+        backgroundAudioService.start();
           transcriptionService.send(msg.media.payload);
         }
       } else if (msg.event === 'mark') {
