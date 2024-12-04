@@ -3,6 +3,8 @@ require('colors');
 
 const express = require('express');
 const ExpressWs = require('express-ws');
+const fs = require('fs');
+const path = require('path');
 
 const { GptService } = require('./services/gpt-service');
 const { StreamService } = require('./services/stream-service');
@@ -123,6 +125,12 @@ app.ws('/connection', (ws) => {
 
     ttsService.on('speech', (responseIndex, audio, label, icount) => {
       console.log(`Interaction ${icount}: TTS -> TWILIO: ${label}`.blue);
+      
+      if (!backgroundMusicStream) {
+        // If no music stream, just send the audio directly
+        streamService.buffer(responseIndex, audio);
+        return;
+      }
       
       // Mix background music with speech
       const mixer = new AudioMixer();
