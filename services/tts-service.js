@@ -25,7 +25,7 @@ class TextToSpeechService extends EventEmitter {
           headers: {
             'xi-api-key': process.env.XI_API_KEY,
             'Content-Type': 'application/json',
-            accept: '*/*',
+            accept: 'audio/wav',
           },
           body: JSON.stringify({
             text: partialResponse,
@@ -37,19 +37,11 @@ class TextToSpeechService extends EventEmitter {
           }),
         }
       );
-
-      // Handle streaming response using node-fetch's body
-      response.body.on('data', (chunk) => {
-        this.emit('speech', 0, Buffer.from(chunk).toString('base64'), partialResponse, interactionCount);
-      });
-
-      // Wait for the stream to complete
-      await new Promise((resolve, reject) => {
-        response.body.on('end', resolve);
-        response.body.on('error', reject);
-      });
+      const audioArrayBuffer = await response.arrayBuffer();
+      this.emit('speech', 0, Buffer.from(audioArrayBuffer).toString('base64'), partialResponse, interactionCount);
     } catch (err) {
-      console.error('Error occurred in TextToSpeech service:', err.message);
+      console.error('Error occurred in TextToSpeech service');
+      console.error(err);
     }
   }
 }
