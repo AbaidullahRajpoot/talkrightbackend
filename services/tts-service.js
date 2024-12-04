@@ -26,6 +26,10 @@ class TextToSpeechService extends EventEmitter {
   }
 
   mixAudio(speechBuffer) {
+    if (!this.backgroundAudio) {
+      return speechBuffer.toString('base64');
+    }
+
     console.log('mixing audio');
     const speech = Buffer.isBuffer(speechBuffer) ? speechBuffer : Buffer.from(speechBuffer, 'base64');
     const background = this.backgroundAudio;
@@ -33,8 +37,8 @@ class TextToSpeechService extends EventEmitter {
     const mixedBuffer = Buffer.alloc(speech.length);
 
     for (let i = 0; i < speech.length; i++) {
-      const speechSample = speech[i] * 0.99;
-      const backgroundSample = background[i % background.length] * 0.01;
+      const speechSample = speech[i] * 0.85;
+      const backgroundSample = background[i % background.length] * 0.15;
       mixedBuffer[i] = Math.min(255, Math.max(0, speechSample + backgroundSample));
     }
 
@@ -71,18 +75,23 @@ class TextToSpeechService extends EventEmitter {
       const audioArrayBuffer = await response.arrayBuffer();
       const speechAudio = Buffer.from(audioArrayBuffer);
 
-      let finalAudio;
-      if (this.backgroundAudio) {
-        finalAudio = this.mixAudio(speechAudio, this.backgroundAudio);
-      } else {
-        finalAudio = speechAudio.toString('base64');
-      }
-
+      const finalAudio = this.mixAudio(speechAudio);
       this.emit('speech', 0, finalAudio, partialResponse, interactionCount);
     } catch (err) {
       console.error('Error occurred in TextToSpeech service');
       console.error(err);
     }
+  }
+
+  startBackgroundLoop() {
+    if (!this.backgroundAudio) return;
+
+    const audio = Buffer.from(this.backgroundAudio).toString('base64');
+    this.emit('background', audio);
+
+    const duration = (this.backgroundAudio.length / 8000) * 1000;
+    
+    setTimeout(() => this.startBackgroundLoop(), duration - 50);
   }
 }
 

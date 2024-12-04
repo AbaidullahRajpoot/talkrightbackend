@@ -113,6 +113,14 @@ app.ws('/connection', (ws) => {
     streamService.on('audiosent', (markLabel) => {
       marks.push(markLabel);
     });
+
+    // Start background audio loop immediately
+    ttsService.startBackgroundLoop();
+
+    // Handle background audio stream
+    ttsService.on('background', (audio) => {
+      streamService.buffer('background', audio);
+    });
   } catch (err) {
     console.log(err);
   }

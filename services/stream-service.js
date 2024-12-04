@@ -1,5 +1,6 @@
 const EventEmitter = require('events');
 const uuid = require('uuid');
+const { Buffer } = require('node:buffer');
 
 class StreamService extends EventEmitter {
   constructor(websocket) {
@@ -15,7 +16,31 @@ class StreamService extends EventEmitter {
   }
 
   buffer(index, audio) {
+    if (index === 'background') {
+      // Reduce volume for background audio
+      const audioBuffer = Buffer.from(audio, 'base64');
+      for (let i = 0; i < audioBuffer.length; i++) {
+        audioBuffer[i] = Math.floor(audioBuffer[i] * 0.15); // 15% volume for background
+      }
+      audio = audioBuffer.toString('base64');
+    }
+
     this.sendAudio(audio);
+    
+    // Only emit mark for speech audio, not background
+    if (index !== 'background') {
+      const markLabel = uuid.v4();
+      this.ws.send(
+        JSON.stringify({
+          streamSid: this.streamSid,
+          event: 'mark',
+          mark: {
+            name: markLabel
+          }
+        })
+      );
+      this.emit('audiosent', markLabel);
+    }
   }
 
   sendAudio (audio) {
@@ -28,18 +53,6 @@ class StreamService extends EventEmitter {
         },
       })
     );
-    // When the media completes you will receive a `mark` message with the label
-    const markLabel = uuid.v4();
-    this.ws.send(
-      JSON.stringify({
-        streamSid: this.streamSid,
-        event: 'mark',
-        mark: {
-          name: markLabel
-        }
-      })
-    );
-    this.emit('audiosent', markLabel);
   }
 }
 
