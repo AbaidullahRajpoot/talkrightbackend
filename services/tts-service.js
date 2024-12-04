@@ -3,8 +3,6 @@ const { Buffer } = require('node:buffer');
 const fetch = require('node-fetch');
 const fs = require('fs').promises;
 const path = require('path');
-const ffmpeg = require('fluent-ffmpeg');
-const { Readable } = require('stream');
 
 class TextToSpeechService extends EventEmitter {
   constructor(config) {
@@ -19,42 +17,32 @@ class TextToSpeechService extends EventEmitter {
 
   async loadBackgroundAudio() {
     try {
-      console.log('Loading background audio...');
+      console.log('loading background audio');
       const audioPath = path.join(__dirname, '../assets/background.mp3');
-      const mp3Buffer = await fs.readFile(audioPath);
-      
-      this.backgroundAudio = await this.convertAudioFormat(mp3Buffer);
-      console.log('Background audio loaded and converted successfully:', this.backgroundAudio.length, 'bytes');
+      this.backgroundAudio = await fs.readFile(audioPath);
     } catch (err) {
       console.error('Error loading background audio:', err);
     }
   }
 
-  convertAudioFormat(inputBuffer) {
-    return new Promise((resolve, reject) => {
-      const inputStream = new Readable();
-      inputStream.push(inputBuffer);
-      inputStream.push(null);
+  mixAudio(speechBuffer) {
+    if (!this.backgroundAudio) {
+      return speechBuffer.toString('base64');
+    }
 
-      let outputBuffer = [];
+    console.log('mixing audio');
+    const speech = Buffer.isBuffer(speechBuffer) ? speechBuffer : Buffer.from(speechBuffer, 'base64');
+    const background = this.backgroundAudio;
 
-      ffmpeg(inputStream)
-        .toFormat('wav')
-        .audioChannels(1)
-        .audioFrequency(8000)
-        .audioCodec('pcm_mulaw')
-        .on('error', (err) => {
-          console.error('FFmpeg error:', err);
-          reject(err);
-        })
-        .on('end', () => {
-          resolve(Buffer.concat(outputBuffer));
-        })
-        .pipe()
-        .on('data', (chunk) => {
-          outputBuffer.push(chunk);
-        });
-    });
+    const mixedBuffer = Buffer.alloc(speech.length);
+
+    for (let i = 0; i < speech.length; i++) {
+      const speechSample = speech[i] * 0.85;
+      const backgroundSample = background[i % background.length] * 0.15;
+      mixedBuffer[i] = Math.min(255, Math.max(0, speechSample + backgroundSample));
+    }
+
+    return mixedBuffer.toString('base64');
   }
 
   async generate(gptReply, interactionCount) {
@@ -86,13 +74,9 @@ class TextToSpeechService extends EventEmitter {
 
       const audioArrayBuffer = await response.arrayBuffer();
       const speechAudio = Buffer.from(audioArrayBuffer);
-      
-      if (this.backgroundAudio) {
-        const backgroundAudioBase64 = Buffer.from(this.backgroundAudio).toString('base64');
-        this.emit('background', backgroundAudioBase64, 0.3);
-      }
-      
-      this.emit('speech', 0, speechAudio.toString('base64'), partialResponse, interactionCount);
+
+      const finalAudio = this.mixAudio(speechAudio);
+      this.emit('speech', 0, finalAudio, partialResponse, interactionCount);
     } catch (err) {
       console.error('Error occurred in TextToSpeech service');
       console.error(err);
@@ -100,8 +84,14 @@ class TextToSpeechService extends EventEmitter {
   }
 
   startBackgroundLoop() {
-    // This method can be removed if you want background audio only during speech
-    // Or keep it if you want continuous background music
+    if (!this.backgroundAudio) return;
+
+    const audio = Buffer.from(this.backgroundAudio).toString('base64');
+    this.emit('background', audio);
+
+    const duration = (this.backgroundAudio.length / 8000) * 1000;
+    
+    setTimeout(() => this.startBackgroundLoop(), duration - 50);
   }
 }
 
