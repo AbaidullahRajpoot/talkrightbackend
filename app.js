@@ -106,6 +106,7 @@ app.ws('/connection', (ws) => {
       console.log(`Interaction ${icount}: GPT -> TTS: ${gptReply.partialResponse}`.green);
       isSpeaking = true;
       transcriptionService.pause();
+      backgroundAudioService.stop(); // Stop background music
       ttsService.generate(gptReply, icount);
     });
 
