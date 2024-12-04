@@ -1,58 +1,63 @@
+const EventEmitter = require('events');
+const { Buffer } = require('node:buffer');
 const fs = require('fs');
 const path = require('path');
 
-class BackgroundAudioService {
+class BackgroundAudioService extends EventEmitter {
   constructor() {
-    this.backgroundAudio = null;
+    super();
+    this.isPlaying = false;
+    this.audioBuffer = null;
     this.currentPosition = 0;
-    this.loadBackgroundAudio();
-    console.log('Background audio size:', this.backgroundAudio?.length || 0, 'bytes');
+    this.chunkSize = 640; // Standard size for 8kHz ulaw audio chunks
+    this.loadAudioFile();
   }
 
-  loadBackgroundAudio() {
+  loadAudioFile() {
     try {
-      const audioPath = path.join(__dirname, '../assets/background.wav');
-      if (fs.existsSync(audioPath)) {
-        this.backgroundAudio = fs.readFileSync(audioPath);
-        console.log('Background audio loaded successfully');
-      } else {
-        console.log('No background audio file found, using silence');
-        this.backgroundAudio = Buffer.alloc(8000); // 1 second of silence
-      }
-    } catch (err) {
-      console.error('Error loading background audio:', err);
-      this.backgroundAudio = Buffer.alloc(8000); // 1 second of silence
+      // Load your background music file (should be in ulaw 8kHz format)
+      const audioPath = path.join(__dirname, '../assets/background-music.ulaw');
+      this.audioBuffer = fs.readFileSync(audioPath);
+    } catch (error) {
+      console.error('Error loading background music:', error);
     }
   }
 
-  mixWithCallAudio(callAudio, chunkSize = 160) {
-    if (!this.backgroundAudio) return callAudio;
+  start() {
+    if (!this.audioBuffer) return;
+    this.isPlaying = true;
+    this.streamAudio();
+  }
 
-    const mixed = Buffer.alloc(chunkSize);
-    
-    for (let i = 0; i < chunkSize; i++) {
-      if (this.currentPosition >= this.backgroundAudio.length) {
-        this.currentPosition = 0;
+  stop() {
+    this.isPlaying = false;
+    this.currentPosition = 0;
+  }
+
+  streamAudio() {
+    if (!this.isPlaying || !this.audioBuffer) return;
+
+    const chunk = this.audioBuffer.slice(
+      this.currentPosition,
+      this.currentPosition + this.chunkSize
+    );
+
+    if (chunk.length > 0) {
+      this.currentPosition += this.chunkSize;
+      if (this.currentPosition >= this.audioBuffer.length) {
+        this.currentPosition = 0; // Loop the audio
       }
       
-      // Convert mu-law values to linear PCM
-      const backgroundMulaw = this.backgroundAudio[this.currentPosition];
-      const callMulaw = callAudio[i];
+      this.emit('audio', chunk.toString('base64'));
       
-      // Mu-law to linear conversion (approximate)
-      const backgroundLinear = (backgroundMulaw - 128) / 128;
-      const callLinear = (callMulaw - 128) / 128;
-      
-      // Mix the audio (background at 30% volume)
-      const mixedLinear = (backgroundLinear * 0.3) + callLinear;
-      
-      // Convert back to mu-law range (0-255)
-      mixed[i] = Math.min(255, Math.max(0, Math.floor((mixedLinear * 128) + 128)));
-      
-      this.currentPosition++;
+      // Schedule next chunk (20ms for 8kHz audio)
+      setTimeout(() => this.streamAudio(), 20);
     }
+  }
 
-    return mixed;
+  setVolume(volume) {
+    // Implement volume control if needed
+    // This would require manipulating the audio buffer values
   }
 }
 

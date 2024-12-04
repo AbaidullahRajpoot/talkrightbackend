@@ -1,5 +1,6 @@
 const EventEmitter = require('events');
 const uuid = require('uuid');
+const { BackgroundAudioService } = require('./background-audio-service');
 
 class StreamService extends EventEmitter {
   constructor(websocket) {
@@ -8,17 +9,38 @@ class StreamService extends EventEmitter {
     this.expectedAudioIndex = 0;
     this.audioBuffer = {};
     this.streamSid = '';
+    this.backgroundAudio = new BackgroundAudioService();
+    this.setupBackgroundAudio();
   }
 
-  setStreamSid (streamSid) {
+  setupBackgroundAudio() {
+    this.backgroundAudio.on('audio', (audioChunk) => {
+      if (this.streamSid) {
+        this.ws.send(
+          JSON.stringify({
+            streamSid: this.streamSid,
+            event: 'media',
+            media: {
+              payload: audioChunk,
+            },
+          })
+        );
+      }
+    });
+  }
+
+  setStreamSid(streamSid) {
     this.streamSid = streamSid;
+    this.backgroundAudio.start();
   }
 
   buffer(index, audio) {
     this.sendAudio(audio);
   }
 
-  sendAudio (audio) {
+  sendAudio(audio) {
+    this.backgroundAudio.stop();
+
     this.ws.send(
       JSON.stringify({
         streamSid: this.streamSid,
@@ -28,7 +50,7 @@ class StreamService extends EventEmitter {
         },
       })
     );
-    // When the media completes you will receive a `mark` message with the label
+
     const markLabel = uuid.v4();
     this.ws.send(
       JSON.stringify({
@@ -39,8 +61,11 @@ class StreamService extends EventEmitter {
         }
       })
     );
+
+    this.backgroundAudio.start();
+    
     this.emit('audiosent', markLabel);
   }
 }
 
-module.exports = {StreamService};
+module.exports = { StreamService };
