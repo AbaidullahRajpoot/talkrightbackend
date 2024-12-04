@@ -9,12 +9,13 @@ class BackgroundAudioService {
 
   loadBackgroundAudio() {
     try {
-      // Load background audio file (should be in ulaw_8000 format)
+      // Load background audio file (8000 Hz mono µ-law WAV format)
       const audioPath = path.join(__dirname, '../assets/output.wav');
       this.backgroundAudio = fs.readFileSync(audioPath);
     } catch (err) {
       console.error('Error loading background audio:', err);
-      this.backgroundAudio = Buffer.alloc(8000); // 1 second of silence
+      // Create 1 second of silence in 8000 Hz µ-law format
+      this.backgroundAudio = Buffer.alloc(8000);
     }
   }
 
