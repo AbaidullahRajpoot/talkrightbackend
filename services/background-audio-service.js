@@ -10,7 +10,7 @@ class BackgroundAudioService {
   loadBackgroundAudio() {
     try {
       // Load background audio file (should be in ulaw_8000 format)
-      const audioPath = path.join(__dirname, '../assets/background.wav');
+      const audioPath = path.join(__dirname, '../assets/output.wav');
       this.backgroundAudio = fs.readFileSync(audioPath);
     } catch (err) {
       console.error('Error loading background audio:', err);
