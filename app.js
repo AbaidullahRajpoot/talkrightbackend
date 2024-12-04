@@ -37,6 +37,7 @@ app.post('/incoming', (req, res) => {
 
 app.ws('/connection', (ws) => {
   let backgroundMusicService;
+  let gptService;
   
   try {
     console.log('Client connected');
@@ -45,6 +46,7 @@ app.ws('/connection', (ws) => {
     const transcriptionService = new TranscriptionService();
     const ttsService = new TextToSpeechService({ voiceId: process.env.VOICE_ID });
     backgroundMusicService = new BackgroundMusicService();
+    gptService = new GptService();
     
     let marks = [];
     let interactionCount = 0;
