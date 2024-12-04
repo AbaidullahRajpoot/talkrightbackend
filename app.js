@@ -9,7 +9,6 @@ const { StreamService } = require('./services/stream-service');
 const { TranscriptionService } = require('./services/transcription-service');
 const { TextToSpeechService } = require('./services/tts-service');
 const { recordingService } = require('./services/recording-service');
-const BackgroundMusicService = require('./services/background-music-service');
 
 const VoiceResponse = require('twilio').twiml.VoiceResponse;
 
@@ -36,18 +35,16 @@ app.post('/incoming', (req, res) => {
 });
 
 app.ws('/connection', (ws) => {
-  let backgroundMusicService;
-  let gptService;
-  
   try {
-    console.log('Client connected');
-    
+    ws.on('error', console.error);
+    let streamSid;
+    let callSid;
+
+    const gptService = new GptService();
     const streamService = new StreamService(ws);
     const transcriptionService = new TranscriptionService();
-    const ttsService = new TextToSpeechService({ voiceId: process.env.VOICE_ID });
-    backgroundMusicService = new BackgroundMusicService();
-    gptService = new GptService();
-    
+    const ttsService = new TextToSpeechService({});
+
     let marks = [];
     let interactionCount = 0;
     let isSpeaking = false;
@@ -116,42 +113,8 @@ app.ws('/connection', (ws) => {
     streamService.on('audiosent', (markLabel) => {
       marks.push(markLabel);
     });
-
-    // Start background music with proper error handling
-    backgroundMusicService.start().catch(err => {
-      console.error('Failed to start background music:', err);
-    });
-
-    // Handle background audio stream
-    backgroundMusicService.on('audio', (audio) => {
-      if (streamService) {
-        streamService.buffer('background', audio);
-      }
-    });
-
-    // Cleanup handlers
-    ws.on('close', () => {
-      console.log('Client disconnected, cleaning up services');
-      if (backgroundMusicService) {
-        backgroundMusicService.cleanup();
-      }
-      if (transcriptionService) {
-        transcriptionService.stop();
-      }
-    });
-
-    ws.on('error', (error) => {
-      console.error('WebSocket error:', error);
-      if (backgroundMusicService) {
-        backgroundMusicService.cleanup();
-      }
-    });
-
   } catch (err) {
-    console.error('Error in WebSocket connection:', err);
-    if (backgroundMusicService) {
-      backgroundMusicService.cleanup();
-    }
+    console.log(err);
   }
 });
 

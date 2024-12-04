@@ -16,44 +16,37 @@ class StreamService extends EventEmitter {
   }
 
   buffer(index, audio) {
-    try {
+    if (index === 'background') {
+      // Set background volume to 50% to be less intrusive
       const audioBuffer = Buffer.from(audio, 'base64');
-      
-      // Apply volume adjustments
-      if (index === 'background') {
-        // Background music at 20% volume
-        for (let i = 0; i < audioBuffer.length; i++) {
-          audioBuffer[i] = Math.floor(audioBuffer[i] * 0.20);
-        }
-      } else {
-        // Speech at 80% volume
-        for (let i = 0; i < audioBuffer.length; i++) {
-          audioBuffer[i] = Math.floor(audioBuffer[i] * 0.80);
-        }
+      for (let i = 0; i < audioBuffer.length; i++) {
+        audioBuffer[i] = Math.floor(audioBuffer[i] * 0.50); // 10% volume for background
       }
-
-      // Convert back to base64
       audio = audioBuffer.toString('base64');
-
-      // Send the audio
-      this.sendAudio(audio);
-      
-      // Only emit mark for speech audio
-      if (index !== 'background') {
-        const markLabel = uuid.v4();
-        this.ws.send(
-          JSON.stringify({
-            streamSid: this.streamSid,
-            event: 'mark',
-            mark: {
-              name: markLabel
-            }
-          })
-        );
-        this.emit('audiosent', markLabel);
+    } else {
+      // For AI speech, keep it at 50% volume
+      const audioBuffer = Buffer.from(audio, 'base64');
+      for (let i = 0; i < audioBuffer.length; i++) {
+        audioBuffer[i] = Math.floor(audioBuffer[i] * 0.50); // 90% volume for speech
       }
-    } catch (err) {
-      console.error('Error processing audio buffer:', err);
+      audio = audioBuffer.toString('base64');
+    }
+
+    this.sendAudio(audio);
+    
+    // Only emit mark for speech audio, not background
+    if (index !== 'background') {
+      const markLabel = uuid.v4();
+      this.ws.send(
+        JSON.stringify({
+          streamSid: this.streamSid,
+          event: 'mark',
+          mark: {
+            name: markLabel
+          }
+        })
+      );
+      this.emit('audiosent', markLabel);
     }
   }
 
