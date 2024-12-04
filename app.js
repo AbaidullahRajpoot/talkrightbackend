@@ -103,10 +103,10 @@ app.ws('/connection', (ws) => {
     });
 
     gptService.on('gptreply', async (gptReply, icount) => {
+      backgroundAudioService.stop(); // Stop background music
       console.log(`Interaction ${icount}: GPT -> TTS: ${gptReply.partialResponse}`.green);
       isSpeaking = true;
       transcriptionService.pause();
-      backgroundAudioService.stop(); // Stop background music
       ttsService.generate(gptReply, icount);
     });
 
