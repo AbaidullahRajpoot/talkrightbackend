@@ -9,7 +9,6 @@ const { StreamService } = require('./services/stream-service');
 const { TranscriptionService } = require('./services/transcription-service');
 const { TextToSpeechService } = require('./services/tts-service');
 const { recordingService } = require('./services/recording-service');
-const { BackgroundAudioService } = require('./services/background-audio-service');
 
 const VoiceResponse = require('twilio').twiml.VoiceResponse;
 
@@ -45,7 +44,6 @@ app.ws('/connection', (ws) => {
     const streamService = new StreamService(ws);
     const transcriptionService = new TranscriptionService();
     const ttsService = new TextToSpeechService({});
-    const backgroundAudioService = new BackgroundAudioService(streamService);
 
     let marks = [];
     let interactionCount = 0;
@@ -64,6 +62,7 @@ app.ws('/connection', (ws) => {
 
         streamService.setStreamSid(streamSid);
         gptService.setCallSid(callSid);
+        // gptService.setCallerPhoneNumber(msg.start.from);
         gptService.setCallerPhoneNumber('0501575591');
 
         // Set RECORDING_ENABLED='true' in .env to record calls
@@ -72,17 +71,10 @@ app.ws('/connection', (ws) => {
           isSpeaking = true;
           transcriptionService.pause();
           transcriptionService.start();  // Start the transcription service
-          
-          // Start background music at very low volume
-          backgroundAudioService.setVolume(0.01); // Set to 1% volume
-          backgroundAudioService.start();
-          
           ttsService.generate({ partialResponseIndex: null, partialResponse: `Hi there! I'm Eva from Zuleikha Hospital. How can I help you today?` }, 1);
         }).catch(err => console.error('Error in recordingService:', err));
       } else if (msg.event === 'media') {
         if (!isSpeaking) {
-          // Pause background music when user is speaking
-          backgroundAudioService.stop();
           transcriptionService.send(msg.media.payload);
         }
       } else if (msg.event === 'mark') {
@@ -92,13 +84,10 @@ app.ws('/connection', (ws) => {
         if (marks.length === 0) {
           isSpeaking = false;
           transcriptionService.resume();
-          // Resume background music when system is done speaking
-          backgroundAudioService.start();
         }
       } else if (msg.event === 'stop') {
         console.log(`Twilio -> Media stream ${streamSid} ended.`.underline.red);
         transcriptionService.stop();  // Stop the transcription service
-        backgroundAudioService.stop(); // Stop background music
       }
     });
 
