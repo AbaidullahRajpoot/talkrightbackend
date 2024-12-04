@@ -9,9 +9,11 @@ const { StreamService } = require('./services/stream-service');
 const { TranscriptionService } = require('./services/transcription-service');
 const { TextToSpeechService } = require('./services/tts-service');
 const { recordingService } = require('./services/recording-service');
-const { BackgroundAudioService } = require('./services/background-audio-service');
 
 const VoiceResponse = require('twilio').twiml.VoiceResponse;
+
+const { Readable } = require('stream');
+const { AudioMixer } = require('node-audio-mixer');
 
 const app = express();
 ExpressWs(app);
@@ -45,11 +47,22 @@ app.ws('/connection', (ws) => {
     const streamService = new StreamService(ws);
     const transcriptionService = new TranscriptionService();
     const ttsService = new TextToSpeechService({});
-    const backgroundAudio = new BackgroundAudioService(streamService);
 
     let marks = [];
     let interactionCount = 0;
     let isSpeaking = false;
+
+    let backgroundMusicStream;
+    
+    // Initialize background music stream
+    const initBackgroundMusic = () => {
+      // Replace 'path/to/music.mp3' with your actual music file
+      backgroundMusicStream = fs.createReadStream('path/to/music.mp3');
+      // Loop the music by restarting the stream when it ends
+      backgroundMusicStream.on('end', () => {
+        backgroundMusicStream = fs.createReadStream('path/to/music.mp3');
+      });
+    };
 
     transcriptionService.on('error', (error) => {
       console.error('Critical transcription service error:', error);
@@ -72,12 +85,10 @@ app.ws('/connection', (ws) => {
           console.log(`Twilio -> Starting Media Stream for ${streamSid}`.underline.red);
           isSpeaking = true;
           transcriptionService.pause();
-          transcriptionService.start();  // Start the transcription service
+          transcriptionService.start();
+          initBackgroundMusic();  // Initialize background music
           ttsService.generate({ partialResponseIndex: null, partialResponse: `Hi there! I'm Eva from Zuleikha Hospital. How can I help you today?` }, 1);
         }).catch(err => console.error('Error in recordingService:', err));
-
-        backgroundAudio.start();
-        backgroundAudio.setVolume(0.2); // Set background music to 20% volume
       } else if (msg.event === 'media') {
         if (!isSpeaking) {
           transcriptionService.send(msg.media.payload);
@@ -93,7 +104,6 @@ app.ws('/connection', (ws) => {
       } else if (msg.event === 'stop') {
         console.log(`Twilio -> Media stream ${streamSid} ended.`.underline.red);
         transcriptionService.stop();  // Stop the transcription service
-        backgroundAudio.stop();
       }
     });
 
@@ -112,16 +122,26 @@ app.ws('/connection', (ws) => {
     });
 
     ttsService.on('speech', (responseIndex, audio, label, icount) => {
-      console.log(`AI Speaking: ${label}`.cyan); // Show what AI is saying
-      backgroundAudio.setVolume(0.1); // Lower background music while AI speaks
-      streamService.buffer(responseIndex, audio);
+      console.log(`Interaction ${icount}: TTS -> TWILIO: ${label}`.blue);
+      
+      // Mix background music with speech
+      const mixer = new AudioMixer();
+      mixer.addInput({
+        buffer: audio,
+        volume: 1.0  // Full volume for speech
+      });
+      
+      mixer.addInput({
+        stream: backgroundMusicStream,
+        volume: 0.2  // Reduced volume for background music
+      });
+
+      const mixedAudio = mixer.mix();
+      streamService.buffer(responseIndex, mixedAudio);
     });
 
     streamService.on('audiosent', (markLabel) => {
       marks.push(markLabel);
-      if (marks.length === 0) {
-        backgroundAudio.setVolume(0.2); // Restore background music volume
-      }
     });
   } catch (err) {
     console.log(err);
