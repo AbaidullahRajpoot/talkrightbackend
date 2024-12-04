@@ -16,7 +16,7 @@ class BackgroundAudioService extends EventEmitter {
   loadAudioFile() {
     try {
       // Load your background music file (should be in ulaw 8kHz format)
-      const audioPath = path.join(__dirname, '../assets/background-music.ulaw');
+      const audioPath = path.join(__dirname, '../assets/background-music.raw');
       this.audioBuffer = fs.readFileSync(audioPath);
     } catch (error) {
       console.error('Error loading background music:', error);
