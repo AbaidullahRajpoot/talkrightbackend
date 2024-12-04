@@ -74,7 +74,7 @@ app.ws('/connection', (ws) => {
           transcriptionService.start();  // Start the transcription service
           
           // Start background music at low volume
-          backgroundAudioService.setVolume(0.05); // Set to 20% volume
+          backgroundAudioService.setVolume(0.02); // Set to 20% volume
           backgroundAudioService.start();
           
           ttsService.generate({ partialResponseIndex: null, partialResponse: `Hi there! I'm Eva from Zuleikha Hospital. How can I help you today?` }, 1);
@@ -90,6 +90,7 @@ app.ws('/connection', (ws) => {
         if (marks.length === 0) {
           isSpeaking = false;
           transcriptionService.resume();
+          
         }
       } else if (msg.event === 'stop') {
         console.log(`Twilio -> Media stream ${streamSid} ended.`.underline.red);
@@ -106,6 +107,7 @@ app.ws('/connection', (ws) => {
     });
 
     gptService.on('gptreply', async (gptReply, icount) => {
+      backgroundAudioService.stop();
       console.log(`Interaction ${icount}: GPT -> TTS: ${gptReply.partialResponse}`.green);
       isSpeaking = true;
       transcriptionService.pause();
