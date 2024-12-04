@@ -11,6 +11,7 @@ class BackgroundAudioService extends EventEmitter {
     this.audioBuffer = null;
     this.currentPosition = 0;
     this.chunkSize = 640; // Standard size for 8kHz ulaw audio chunks
+    this.volume = 0.3; // Set default volume to 30%
     this.loadAudioFile();
   }
 
@@ -59,8 +60,17 @@ class BackgroundAudioService extends EventEmitter {
   }
 
   setVolume(volume) {
-    // Implement volume control if needed
-    // This would require manipulating the audio buffer values
+    // Volume should be between 0 and 1
+    this.volume = Math.max(0, Math.min(1, volume));
+    
+    // If we have an audio buffer, adjust its volume
+    if (this.audioBuffer) {
+      const adjustedBuffer = Buffer.alloc(this.audioBuffer.length);
+      for (let i = 0; i < this.audioBuffer.length; i++) {
+        adjustedBuffer[i] = Math.floor(this.audioBuffer[i] * this.volume);
+      }
+      this.audioBuffer = adjustedBuffer;
+    }
   }
 }
 
