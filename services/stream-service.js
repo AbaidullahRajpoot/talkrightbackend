@@ -10,6 +10,7 @@ class StreamService extends EventEmitter {
     this.audioBuffer = {};
     this.streamSid = '';
     this.backgroundAudio = new BackgroundAudioService();
+    this.backgroundAudioTimeout = null;
     this.setupBackgroundAudio();
   }
 
@@ -41,6 +42,10 @@ class StreamService extends EventEmitter {
   sendAudio(audio) {
     this.backgroundAudio.stop();
 
+    if (this.backgroundAudioTimeout) {
+      clearTimeout(this.backgroundAudioTimeout);
+    }
+
     console.log('Sending audio to Twilio:', audio);
 
     this.ws.send(
@@ -64,7 +69,7 @@ class StreamService extends EventEmitter {
       })
     );
 
-    setTimeout(() => {
+    this.backgroundAudioTimeout = setTimeout(() => {
       this.backgroundAudio.start();
     }, 1000);
     
