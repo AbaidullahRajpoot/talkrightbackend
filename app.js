@@ -100,6 +100,7 @@ app.ws('/connection', (ws) => {
     transcriptionService.on('transcription', async (text) => {
       if (!text) { return; }
       console.log(`Interaction ${interactionCount} – STT -> GPT: ${text}`.yellow);
+      backgroundAudioService.stop();
       gptService.completion(text, interactionCount);
       interactionCount += 1;
     });
@@ -108,6 +109,7 @@ app.ws('/connection', (ws) => {
       console.log(`Interaction ${icount}: GPT -> TTS: ${gptReply.partialResponse}`.green);
       isSpeaking = true;
       transcriptionService.pause();
+      backgroundAudioService.start();
       ttsService.generate(gptReply, icount);
     });
 
