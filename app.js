@@ -9,6 +9,7 @@ const { StreamService } = require('./services/stream-service');
 const { TranscriptionService } = require('./services/transcription-service');
 const { TextToSpeechService } = require('./services/tts-service');
 const { recordingService } = require('./services/recording-service');
+const { BackgroundAudioService } = require('./services/background-audio-service');
 
 const VoiceResponse = require('twilio').twiml.VoiceResponse;
 
@@ -44,6 +45,7 @@ app.ws('/connection', (ws) => {
     const streamService = new StreamService(ws);
     const transcriptionService = new TranscriptionService();
     const ttsService = new TextToSpeechService({});
+    const backgroundAudioService = new BackgroundAudioService(streamService);
 
     let marks = [];
     let interactionCount = 0;
@@ -72,6 +74,7 @@ app.ws('/connection', (ws) => {
           transcriptionService.pause();
           transcriptionService.start();  // Start the transcription service
           ttsService.generate({ partialResponseIndex: null, partialResponse: `Hi there! I'm Eva from Zuleikha Hospital. How can I help you today?` }, 1);
+          backgroundAudioService.stop(); // Stop background music when AI starts speaking
         }).catch(err => console.error('Error in recordingService:', err));
       } else if (msg.event === 'media') {
         if (!isSpeaking) {
@@ -84,6 +87,7 @@ app.ws('/connection', (ws) => {
         if (marks.length === 0) {
           isSpeaking = false;
           transcriptionService.resume();
+          backgroundAudioService.start(); // Start background music when AI stops speaking
         }
       } else if (msg.event === 'stop') {
         console.log(`Twilio -> Media stream ${streamSid} ended.`.underline.red);

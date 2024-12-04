@@ -4,8 +4,9 @@ const fs = require('fs');
 const path = require('path');
 
 class BackgroundAudioService extends EventEmitter {
-  constructor() {
+  constructor(streamService) {
     super();
+    this.streamService = streamService;
     this.isPlaying = false;
     this.audioBuffer = null;
     this.currentPosition = 0;
@@ -48,7 +49,9 @@ class BackgroundAudioService extends EventEmitter {
         this.currentPosition = 0; // Loop the audio
       }
       
-      this.emit('audio', chunk.toString('base64'));
+      if (this.streamService) {
+        this.streamService.buffer(0, chunk.toString('base64'));
+      }
       
       // Schedule next chunk (20ms for 8kHz audio)
       setTimeout(() => this.streamAudio(), 20);
