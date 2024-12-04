@@ -76,7 +76,7 @@ app.ws('/connection', (ws) => {
           ttsService.generate({ partialResponseIndex: null, partialResponse: `Hi there! I'm Eva from Zuleikha Hospital. How can I help you today?` }, 1);
         }).catch(err => console.error('Error in recordingService:', err));
 
-        // backgroundAudioService.start();
+        backgroundAudioService.start();
       } else if (msg.event === 'media') {
         if (!isSpeaking) {
           console.log('sending media');
@@ -101,6 +101,7 @@ app.ws('/connection', (ws) => {
     transcriptionService.on('transcription', async (text) => {
       if (!text) { return; }
       console.log(`Interaction ${interactionCount} – STT -> GPT: ${text}`.yellow);
+      backgroundAudioService.stop();
       gptService.completion(text, interactionCount);
       interactionCount += 1;
     });
