@@ -9,7 +9,6 @@ const { StreamService } = require('./services/stream-service');
 const { TranscriptionService } = require('./services/transcription-service');
 const { TextToSpeechService } = require('./services/tts-service');
 const { recordingService } = require('./services/recording-service');
-const { BackgroundAudioService } = require('./services/background-audio-service');
 
 const VoiceResponse = require('twilio').twiml.VoiceResponse;
 
@@ -45,7 +44,6 @@ app.ws('/connection', (ws) => {
     const streamService = new StreamService(ws);
     const transcriptionService = new TranscriptionService();
     const ttsService = new TextToSpeechService({});
-    const backgroundAudio = new BackgroundAudioService();
 
     let marks = [];
     let interactionCount = 0;
@@ -75,10 +73,6 @@ app.ws('/connection', (ws) => {
           transcriptionService.start();  // Start the transcription service
           ttsService.generate({ partialResponseIndex: null, partialResponse: `Hi there! I'm Eva from Zuleikha Hospital. How can I help you today?` }, 1);
         }).catch(err => console.error('Error in recordingService:', err));
-
-        // Start background music at low volume
-        backgroundAudio.setVolume(0.2); // 20% volume
-        backgroundAudio.start();
       } else if (msg.event === 'media') {
         if (!isSpeaking) {
           transcriptionService.send(msg.media.payload);
@@ -94,7 +88,6 @@ app.ws('/connection', (ws) => {
       } else if (msg.event === 'stop') {
         console.log(`Twilio -> Media stream ${streamSid} ended.`.underline.red);
         transcriptionService.stop();  // Stop the transcription service
-        backgroundAudio.stop();
       }
     });
 
@@ -114,24 +107,11 @@ app.ws('/connection', (ws) => {
 
     ttsService.on('speech', (responseIndex, audio, label, icount) => {
       console.log(`Interaction ${icount}: TTS -> TWILIO: ${label}`.blue);
-      
-      // Temporarily lower background music volume during speech
-      backgroundAudio.setVolume(0.1);
       streamService.buffer(responseIndex, audio);
-      
-      // Restore background music volume after speech
-      setTimeout(() => backgroundAudio.setVolume(0.2), 1000);
     });
 
     streamService.on('audiosent', (markLabel) => {
       marks.push(markLabel);
-    });
-
-    // Handle background music streaming
-    backgroundAudio.on('audio', (audioChunk) => {
-      if (!isSpeaking) {
-        streamService.buffer(null, audioChunk);
-      }
     });
   } catch (err) {
     console.log(err);
