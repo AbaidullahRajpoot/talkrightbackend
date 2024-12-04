@@ -4,6 +4,7 @@ const path = require('path');
 class BackgroundAudioService {
   constructor() {
     this.backgroundAudio = null;
+    this.currentPosition = 0;
     this.loadBackgroundAudio();
   }
 
@@ -18,6 +19,30 @@ class BackgroundAudioService {
     }
   }
 
+  // Get the next chunk of background audio and mix it with call audio
+  mixWithCallAudio(callAudio, chunkSize = 160) {
+    if (!this.backgroundAudio) return callAudio;
+
+    const mixed = Buffer.alloc(chunkSize);
+    
+    for (let i = 0; i < chunkSize; i++) {
+      // Loop back to start if we reach the end of background audio
+      if (this.currentPosition >= this.backgroundAudio.length) {
+        this.currentPosition = 0;
+      }
+      
+      // Mix background audio at 30% volume with call audio
+      const backgroundSample = this.backgroundAudio[this.currentPosition] * 0.3;
+      const callSample = callAudio[i];
+      mixed[i] = Math.min(255, Math.max(0, Math.floor(backgroundSample + callSample)));
+      
+      this.currentPosition++;
+    }
+
+    return mixed;
+  }
+
+  // Original method kept for compatibility
   getBackgroundAudio() {
     return this.backgroundAudio;
   }
