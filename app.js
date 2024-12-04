@@ -75,18 +75,13 @@ app.ws('/connection', (ws) => {
           transcriptionService.start();  // Start the transcription service
           ttsService.generate({ partialResponseIndex: null, partialResponse: `Hi there! I'm Eva from Zuleikha Hospital. How can I help you today?` }, 1);
         }).catch(err => console.error('Error in recordingService:', err));
-
-        backgroundAudioService.start();
       } else if (msg.event === 'media') {
         if (!isSpeaking) {
-          console.log('sending media');
-        backgroundAudioService.start();
           transcriptionService.send(msg.media.payload);
         }
       } else if (msg.event === 'mark') {
         const label = msg.mark.name;
         console.log(`Twilio -> Audio completed mark (${msg.sequenceNumber}): ${label}`.red);
-        backgroundAudioService.stop();
         marks = marks.filter(m => m !== msg.mark.name);
         if (marks.length === 0) {
           isSpeaking = false;
@@ -95,14 +90,12 @@ app.ws('/connection', (ws) => {
       } else if (msg.event === 'stop') {
         console.log(`Twilio -> Media stream ${streamSid} ended.`.underline.red);
         transcriptionService.stop();  // Stop the transcription service
-        // backgroundAudioService.stop();
       }
     });
 
     transcriptionService.on('transcription', async (text) => {
       if (!text) { return; }
       console.log(`Interaction ${interactionCount} – STT -> GPT: ${text}`.yellow);
-      backgroundAudioService.stop();
       gptService.completion(text, interactionCount);
       interactionCount += 1;
     });
