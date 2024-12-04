@@ -1,63 +1,48 @@
-const EventEmitter = require('events');
-const { Buffer } = require('node:buffer');
 const fs = require('fs');
 const path = require('path');
+const { EventEmitter } = require('events');
 
 class BackgroundAudioService extends EventEmitter {
-  constructor() {
+  constructor(ws) {
     super();
+    this.ws = ws;
     this.isPlaying = false;
-    this.audioBuffer = null;
-    this.currentPosition = 0;
-    this.chunkSize = 640; // Standard size for 8kHz ulaw audio chunks
-    this.loadAudioFile();
-  }
-
-  loadAudioFile() {
-    try {
-      // Load your background music file (should be in ulaw 8kHz format)
-      const audioPath = path.join(__dirname, '../assets/background-music.raw');
-      this.audioBuffer = fs.readFileSync(audioPath);
-    } catch (error) {
-      console.error('Error loading background music:', error);
-    }
+    this.audioPath = path.join(__dirname, '../assets/background-music.mp3'); // Adjust path as needed
+    this.streamInterval = null;
   }
 
   start() {
-    if (!this.audioBuffer) return;
+    if (this.isPlaying) return;
     this.isPlaying = true;
-    this.streamAudio();
+    
+    try {
+      const audioBuffer = fs.readFileSync(this.audioPath);
+      
+      // Stream audio in chunks
+      this.streamInterval = setInterval(() => {
+        if (this.isPlaying) {
+          // Send audio chunks to Twilio's Media API
+          // You'll need to implement the actual streaming logic based on your audio format
+          this.ws.send(JSON.stringify({
+            event: 'media',
+            streamSid: this.streamSid,
+            media: {
+              payload: audioBuffer.toString('base64')
+            }
+          }));
+        }
+      }, 100); // Adjust interval as needed
+    } catch (error) {
+      console.error('Error starting background audio:', error);
+    }
   }
 
   stop() {
     this.isPlaying = false;
-    this.currentPosition = 0;
-  }
-
-  streamAudio() {
-    if (!this.isPlaying || !this.audioBuffer) return;
-
-    const chunk = this.audioBuffer.slice(
-      this.currentPosition,
-      this.currentPosition + this.chunkSize
-    );
-
-    if (chunk.length > 0) {
-      this.currentPosition += this.chunkSize;
-      if (this.currentPosition >= this.audioBuffer.length) {
-        this.currentPosition = 0; // Loop the audio
-      }
-      
-      this.emit('audio', chunk.toString('base64'));
-      
-      // Schedule next chunk (20ms for 8kHz audio)
-      setTimeout(() => this.streamAudio(), 20);
+    if (this.streamInterval) {
+      clearInterval(this.streamInterval);
+      this.streamInterval = null;
     }
-  }
-
-  setVolume(volume) {
-    // Implement volume control if needed
-    // This would require manipulating the audio buffer values
   }
 }
 
