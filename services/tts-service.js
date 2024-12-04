@@ -17,9 +17,9 @@ class TextToSpeechService extends EventEmitter {
 
   async loadBackgroundAudio() {
     try {
-      console.log('loading background audio');
       const audioPath = path.join(__dirname, '../assets/background.mp3');
       this.backgroundAudio = await fs.readFile(audioPath);
+      console.log('Background audio loaded successfully');
     } catch (err) {
       console.error('Error loading background audio:', err);
     }
@@ -37,8 +37,8 @@ class TextToSpeechService extends EventEmitter {
     const mixedBuffer = Buffer.alloc(speech.length);
 
     for (let i = 0; i < speech.length; i++) {
-      const speechSample = speech[i] * 0.85;
-      const backgroundSample = background[i % background.length] * 0.15;
+      const speechSample = speech[i] * 0.95;
+      const backgroundSample = background[i % background.length] * 0.05;
       mixedBuffer[i] = Math.min(255, Math.max(0, speechSample + backgroundSample));
     }
 

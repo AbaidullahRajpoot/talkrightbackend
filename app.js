@@ -9,6 +9,7 @@ const { StreamService } = require('./services/stream-service');
 const { TranscriptionService } = require('./services/transcription-service');
 const { TextToSpeechService } = require('./services/tts-service');
 const { recordingService } = require('./services/recording-service');
+const BackgroundMusicService = require('./services/background-music-service');
 
 const VoiceResponse = require('twilio').twiml.VoiceResponse;
 
@@ -44,6 +45,7 @@ app.ws('/connection', (ws) => {
     const streamService = new StreamService(ws);
     const transcriptionService = new TranscriptionService();
     const ttsService = new TextToSpeechService({});
+    const backgroundMusicService = new BackgroundMusicService();
 
     let marks = [];
     let interactionCount = 0;
@@ -114,12 +116,16 @@ app.ws('/connection', (ws) => {
       marks.push(markLabel);
     });
 
-    // Start background audio loop immediately
-    ttsService.startBackgroundLoop();
+    // Start background music immediately
+    backgroundMusicService.start();
 
-    // Handle background audio stream
-    ttsService.on('background', (audio) => {
+    // Handle background audio stream independently of speech
+    backgroundMusicService.on('audio', (audio) => {
       streamService.buffer('background', audio);
+    });
+
+    ws.on('close', () => {
+      backgroundMusicService.stop();
     });
   } catch (err) {
     console.log(err);
