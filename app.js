@@ -85,7 +85,7 @@ app.ws('/connection', (ws) => {
       } else if (msg.event === 'mark') {
         const label = msg.mark.name;
         console.log(`Twilio -> Audio completed mark (${msg.sequenceNumber}): ${label}`.red);
-        // backgroundAudioService.start();
+        backgroundAudioService.stop();
         marks = marks.filter(m => m !== msg.mark.name);
         if (marks.length === 0) {
           isSpeaking = false;
