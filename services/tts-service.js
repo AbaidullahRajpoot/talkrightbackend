@@ -56,6 +56,11 @@ class TextToSpeechService extends EventEmitter {
       const audioArrayBuffer = await response.arrayBuffer();
       const speechAudio = Buffer.from(audioArrayBuffer);
       
+      if (this.backgroundAudio) {
+        const backgroundAudioBase64 = Buffer.from(this.backgroundAudio).toString('base64');
+        this.emit('background', backgroundAudioBase64, 0.3);
+      }
+      
       this.emit('speech', 0, speechAudio.toString('base64'), partialResponse, interactionCount);
     } catch (err) {
       console.error('Error occurred in TextToSpeech service');
@@ -64,19 +69,8 @@ class TextToSpeechService extends EventEmitter {
   }
 
   startBackgroundLoop() {
-    if (!this.backgroundAudio) {
-      console.log('No background audio loaded, cannot start loop');
-      return;
-    }
-    
-    console.log('Starting background loop');
-    const audio = Buffer.from(this.backgroundAudio).toString('base64');
-    this.emit('background', audio);
-
-    const duration = (this.backgroundAudio.length / 8000) * 1000;
-    console.log('Scheduling next background loop in', duration, 'ms');
-    
-    setTimeout(() => this.startBackgroundLoop(), duration - 50);
+    // This method can be removed if you want background audio only during speech
+    // Or keep it if you want continuous background music
   }
 }
 
