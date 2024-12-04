@@ -74,7 +74,7 @@ app.ws('/connection', (ws) => {
           transcriptionService.start();  // Start the transcription service
           
           // Start background music at low volume
-          backgroundAudioService.setVolume(0.1); // Set to 20% volume
+          backgroundAudioService.setVolume(0.05); // Set to 20% volume
           backgroundAudioService.start();
           
           ttsService.generate({ partialResponseIndex: null, partialResponse: `Hi there! I'm Eva from Zuleikha Hospital. How can I help you today?` }, 1);
