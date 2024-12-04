@@ -76,7 +76,7 @@ app.ws('/connection', (ws) => {
           ttsService.generate({ partialResponseIndex: null, partialResponse: `Hi there! I'm Eva from Zuleikha Hospital. How can I help you today?` }, 1);
         }).catch(err => console.error('Error in recordingService:', err));
 
-        backgroundAudioService.start();
+        // backgroundAudioService.start();
       } else if (msg.event === 'media') {
         if (!isSpeaking) {
           transcriptionService.send(msg.media.payload);
@@ -92,7 +92,7 @@ app.ws('/connection', (ws) => {
       } else if (msg.event === 'stop') {
         console.log(`Twilio -> Media stream ${streamSid} ended.`.underline.red);
         transcriptionService.stop();  // Stop the transcription service
-        backgroundAudioService.stop();
+        // backgroundAudioService.stop();
       }
     });
 
