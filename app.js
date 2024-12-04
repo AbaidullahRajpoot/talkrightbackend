@@ -36,17 +36,16 @@ app.post('/incoming', (req, res) => {
 });
 
 app.ws('/connection', (ws) => {
+  let backgroundMusicService;
+  
   try {
-    ws.on('error', console.error);
-    let streamSid;
-    let callSid;
-
-    const gptService = new GptService();
+    console.log('Client connected');
+    
     const streamService = new StreamService(ws);
     const transcriptionService = new TranscriptionService();
-    const ttsService = new TextToSpeechService({});
-    const backgroundMusicService = new BackgroundMusicService();
-
+    const ttsService = new TextToSpeechService({ voiceId: process.env.VOICE_ID });
+    backgroundMusicService = new BackgroundMusicService();
+    
     let marks = [];
     let interactionCount = 0;
     let isSpeaking = false;
@@ -116,19 +115,41 @@ app.ws('/connection', (ws) => {
       marks.push(markLabel);
     });
 
-    // Start background music immediately
-    backgroundMusicService.start();
+    // Start background music with proper error handling
+    backgroundMusicService.start().catch(err => {
+      console.error('Failed to start background music:', err);
+    });
 
-    // Handle background audio stream independently of speech
+    // Handle background audio stream
     backgroundMusicService.on('audio', (audio) => {
-      streamService.buffer('background', audio);
+      if (streamService) {
+        streamService.buffer('background', audio);
+      }
     });
 
+    // Cleanup handlers
     ws.on('close', () => {
-      backgroundMusicService.stop();
+      console.log('Client disconnected, cleaning up services');
+      if (backgroundMusicService) {
+        backgroundMusicService.cleanup();
+      }
+      if (transcriptionService) {
+        transcriptionService.stop();
+      }
     });
+
+    ws.on('error', (error) => {
+      console.error('WebSocket error:', error);
+      if (backgroundMusicService) {
+        backgroundMusicService.cleanup();
+      }
+    });
+
   } catch (err) {
-    console.log(err);
+    console.error('Error in WebSocket connection:', err);
+    if (backgroundMusicService) {
+      backgroundMusicService.cleanup();
+    }
   }
 });
 
