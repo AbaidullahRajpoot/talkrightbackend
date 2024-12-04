@@ -115,10 +115,13 @@ app.ws('/connection', (ws) => {
     });
 
     // Start background audio loop immediately
-    ttsService.startBackgroundLoop();
+    setTimeout(() => {
+      ttsService.startBackgroundLoop();
+    }, 1000); // Give it a second to load the background audio
 
     // Handle background audio stream
     ttsService.on('background', (audio) => {
+      console.log('Background audio event received');
       streamService.buffer('background', audio);
     });
   } catch (err) {

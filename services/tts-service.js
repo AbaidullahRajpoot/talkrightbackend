@@ -17,9 +17,10 @@ class TextToSpeechService extends EventEmitter {
 
   async loadBackgroundAudio() {
     try {
-      console.log('loading background audio');
+      console.log('Loading background audio...');
       const audioPath = path.join(__dirname, '../assets/background.mp3');
       this.backgroundAudio = await fs.readFile(audioPath);
+      console.log('Background audio loaded successfully:', this.backgroundAudio.length, 'bytes');
     } catch (err) {
       console.error('Error loading background audio:', err);
     }
@@ -63,12 +64,17 @@ class TextToSpeechService extends EventEmitter {
   }
 
   startBackgroundLoop() {
-    if (!this.backgroundAudio) return;
-
+    if (!this.backgroundAudio) {
+      console.log('No background audio loaded, cannot start loop');
+      return;
+    }
+    
+    console.log('Starting background loop');
     const audio = Buffer.from(this.backgroundAudio).toString('base64');
     this.emit('background', audio);
 
     const duration = (this.backgroundAudio.length / 8000) * 1000;
+    console.log('Scheduling next background loop in', duration, 'ms');
     
     setTimeout(() => this.startBackgroundLoop(), duration - 50);
   }
