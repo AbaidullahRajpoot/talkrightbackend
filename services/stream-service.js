@@ -17,10 +17,17 @@ class StreamService extends EventEmitter {
 
   buffer(index, audio) {
     if (index === 'background') {
-      // Reduce volume for background audio
+      // Set background volume to 10% to be less intrusive
       const audioBuffer = Buffer.from(audio, 'base64');
       for (let i = 0; i < audioBuffer.length; i++) {
-        audioBuffer[i] = Math.floor(audioBuffer[i] * 0.15); // 15% volume for background
+        audioBuffer[i] = Math.floor(audioBuffer[i] * 0.10); // 10% volume for background
+      }
+      audio = audioBuffer.toString('base64');
+    } else {
+      // For AI speech, keep it at 90% volume
+      const audioBuffer = Buffer.from(audio, 'base64');
+      for (let i = 0; i < audioBuffer.length; i++) {
+        audioBuffer[i] = Math.floor(audioBuffer[i] * 0.90); // 90% volume for speech
       }
       audio = audioBuffer.toString('base64');
     }
