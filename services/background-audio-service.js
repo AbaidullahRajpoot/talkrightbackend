@@ -6,11 +6,12 @@ class BackgroundAudioService {
     this.backgroundAudio = null;
     this.currentPosition = 0;
     this.loadBackgroundAudio();
+    console.log('Background audio size:', this.backgroundAudio?.length || 0, 'bytes');
   }
 
   loadBackgroundAudio() {
     try {
-      const audioPath = path.join(__dirname, '../assets/background.raw');
+      const audioPath = path.join(__dirname, '../assets/background.wav');
       if (fs.existsSync(audioPath)) {
         this.backgroundAudio = fs.readFileSync(audioPath);
         console.log('Background audio loaded successfully');
@@ -34,10 +35,19 @@ class BackgroundAudioService {
         this.currentPosition = 0;
       }
       
-      // Mix background audio at 30% volume with call audio
-      const backgroundSample = this.backgroundAudio[this.currentPosition] * 0.3;
-      const callSample = callAudio[i];
-      mixed[i] = Math.min(255, Math.max(0, Math.floor(backgroundSample + callSample)));
+      // Convert mu-law values to linear PCM
+      const backgroundMulaw = this.backgroundAudio[this.currentPosition];
+      const callMulaw = callAudio[i];
+      
+      // Mu-law to linear conversion (approximate)
+      const backgroundLinear = (backgroundMulaw - 128) / 128;
+      const callLinear = (callMulaw - 128) / 128;
+      
+      // Mix the audio (background at 30% volume)
+      const mixedLinear = (backgroundLinear * 0.3) + callLinear;
+      
+      // Convert back to mu-law range (0-255)
+      mixed[i] = Math.min(255, Math.max(0, Math.floor((mixedLinear * 128) + 128)));
       
       this.currentPosition++;
     }
