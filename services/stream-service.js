@@ -20,7 +20,7 @@ class StreamService extends EventEmitter {
       // Set consistent background volume to 15%
       const audioBuffer = Buffer.from(audio, 'base64');
       for (let i = 0; i < audioBuffer.length; i++) {
-        audioBuffer[i] = Math.floor(audioBuffer[i] * 0.15); // 15% constant volume for background
+        audioBuffer[i] = Math.floor(audioBuffer[i] * 0.50); // 15% constant volume for background
       }
       audio = audioBuffer.toString('base64');
     }
