@@ -38,16 +38,16 @@ class TextToSpeechService extends EventEmitter {
         }
       );
 
-      const reader = response.body.getReader();
-      let chunks = [];
-      
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        chunks.push(value);
-        
-        this.emit('speech', 0, Buffer.from(value).toString('base64'), partialResponse, interactionCount);
-      }
+      // Handle streaming response using node-fetch's body
+      response.body.on('data', (chunk) => {
+        this.emit('speech', 0, Buffer.from(chunk).toString('base64'), partialResponse, interactionCount);
+      });
+
+      // Wait for the stream to complete
+      await new Promise((resolve, reject) => {
+        response.body.on('end', resolve);
+        response.body.on('error', reject);
+      });
     } catch (err) {
       console.error('Error occurred in TextToSpeech service:', err.message);
     }
