@@ -41,6 +41,8 @@ class StreamService extends EventEmitter {
   sendAudio(audio) {
     this.backgroundAudio.stop();
 
+    console.log('Sending audio to Twilio:', audio);
+
     this.ws.send(
       JSON.stringify({
         streamSid: this.streamSid,
