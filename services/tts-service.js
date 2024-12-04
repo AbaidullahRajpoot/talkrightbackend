@@ -25,7 +25,7 @@ class TextToSpeechService extends EventEmitter {
           headers: {
             'xi-api-key': process.env.XI_API_KEY,
             'Content-Type': 'application/json',
-            accept: 'audio/wav',
+            accept: '*/*',
           },
           body: JSON.stringify({
             text: partialResponse,
@@ -37,11 +37,19 @@ class TextToSpeechService extends EventEmitter {
           }),
         }
       );
-      const audioArrayBuffer = await response.arrayBuffer();
-      this.emit('speech', 0, Buffer.from(audioArrayBuffer).toString('base64'), partialResponse, interactionCount);
+
+      const reader = response.body.getReader();
+      let chunks = [];
+      
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        chunks.push(value);
+        
+        this.emit('speech', 0, Buffer.from(value).toString('base64'), partialResponse, interactionCount);
+      }
     } catch (err) {
-      console.error('Error occurred in TextToSpeech service');
-      console.error(err);
+      console.error('Error occurred in TextToSpeech service:', err.message);
     }
   }
 }
