@@ -13,7 +13,7 @@ class BackgroundMusicService extends EventEmitter {
 
   async loadBackgroundAudio() {
     try {
-      const audioPath = path.join(__dirname, '../assets/background.mp3');
+      const audioPath = path.join(__dirname, '../audio/ambient-noise.mp3');
       this.backgroundAudio = await fs.readFile(audioPath);
       console.log('Background audio loaded successfully');
     } catch (err) {
