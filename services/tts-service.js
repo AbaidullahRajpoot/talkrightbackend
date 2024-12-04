@@ -3,6 +3,8 @@ const { Buffer } = require('node:buffer');
 const fetch = require('node-fetch');
 const fs = require('fs').promises;
 const path = require('path');
+const ffmpeg = require('fluent-ffmpeg');
+const { Readable } = require('stream');
 
 class TextToSpeechService extends EventEmitter {
   constructor(config) {
@@ -19,11 +21,40 @@ class TextToSpeechService extends EventEmitter {
     try {
       console.log('Loading background audio...');
       const audioPath = path.join(__dirname, '../assets/background.mp3');
-      this.backgroundAudio = await fs.readFile(audioPath);
-      console.log('Background audio loaded successfully:', this.backgroundAudio.length, 'bytes');
+      const mp3Buffer = await fs.readFile(audioPath);
+      
+      this.backgroundAudio = await this.convertAudioFormat(mp3Buffer);
+      console.log('Background audio loaded and converted successfully:', this.backgroundAudio.length, 'bytes');
     } catch (err) {
       console.error('Error loading background audio:', err);
     }
+  }
+
+  convertAudioFormat(inputBuffer) {
+    return new Promise((resolve, reject) => {
+      const inputStream = new Readable();
+      inputStream.push(inputBuffer);
+      inputStream.push(null);
+
+      let outputBuffer = [];
+
+      ffmpeg(inputStream)
+        .toFormat('wav')
+        .audioChannels(1)
+        .audioFrequency(8000)
+        .audioCodec('pcm_mulaw')
+        .on('error', (err) => {
+          console.error('FFmpeg error:', err);
+          reject(err);
+        })
+        .on('end', () => {
+          resolve(Buffer.concat(outputBuffer));
+        })
+        .pipe()
+        .on('data', (chunk) => {
+          outputBuffer.push(chunk);
+        });
+    });
   }
 
   async generate(gptReply, interactionCount) {
