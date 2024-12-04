@@ -3,8 +3,6 @@ require('colors');
 
 const express = require('express');
 const ExpressWs = require('express-ws');
-const fs = require('fs');
-const path = require('path');
 
 const { GptService } = require('./services/gpt-service');
 const { StreamService } = require('./services/stream-service');
@@ -13,9 +11,6 @@ const { TextToSpeechService } = require('./services/tts-service');
 const { recordingService } = require('./services/recording-service');
 
 const VoiceResponse = require('twilio').twiml.VoiceResponse;
-
-const { Readable } = require('stream');
-const { AudioMixer } = require('node-audio-mixer');
 
 const app = express();
 ExpressWs(app);
@@ -54,18 +49,6 @@ app.ws('/connection', (ws) => {
     let interactionCount = 0;
     let isSpeaking = false;
 
-    let backgroundMusicStream;
-    
-    // Initialize background music stream
-    const initBackgroundMusic = () => {
-      // Replace 'path/to/music.mp3' with your actual music file
-      backgroundMusicStream = fs.createReadStream('path/to/music.mp3');
-      // Loop the music by restarting the stream when it ends
-      backgroundMusicStream.on('end', () => {
-        backgroundMusicStream = fs.createReadStream('path/to/music.mp3');
-      });
-    };
-
     transcriptionService.on('error', (error) => {
       console.error('Critical transcription service error:', error);
       // Handle the error appropriately (e.g., end the call, notify the user)
@@ -87,8 +70,7 @@ app.ws('/connection', (ws) => {
           console.log(`Twilio -> Starting Media Stream for ${streamSid}`.underline.red);
           isSpeaking = true;
           transcriptionService.pause();
-          transcriptionService.start();
-          initBackgroundMusic();  // Initialize background music
+          transcriptionService.start();  // Start the transcription service
           ttsService.generate({ partialResponseIndex: null, partialResponse: `Hi there! I'm Eva from Zuleikha Hospital. How can I help you today?` }, 1);
         }).catch(err => console.error('Error in recordingService:', err));
       } else if (msg.event === 'media') {
@@ -125,27 +107,7 @@ app.ws('/connection', (ws) => {
 
     ttsService.on('speech', (responseIndex, audio, label, icount) => {
       console.log(`Interaction ${icount}: TTS -> TWILIO: ${label}`.blue);
-      
-      if (!backgroundMusicStream) {
-        // If no music stream, just send the audio directly
-        streamService.buffer(responseIndex, audio);
-        return;
-      }
-      
-      // Mix background music with speech
-      const mixer = new AudioMixer();
-      mixer.addInput({
-        buffer: audio,
-        volume: 1.0  // Full volume for speech
-      });
-      
-      mixer.addInput({
-        stream: backgroundMusicStream,
-        volume: 0.2  // Reduced volume for background music
-      });
-
-      const mixedAudio = mixer.mix();
-      streamService.buffer(responseIndex, mixedAudio);
+      streamService.buffer(responseIndex, audio);
     });
 
     streamService.on('audiosent', (markLabel) => {
