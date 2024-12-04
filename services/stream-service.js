@@ -41,39 +41,43 @@ class StreamService extends EventEmitter {
 
   sendAudio(audio) {
     this.backgroundAudio.stop();
-
     if (this.backgroundAudioTimeout) {
       clearTimeout(this.backgroundAudioTimeout);
+      this.backgroundAudioTimeout = null;
     }
 
-    console.log('Sending audio to Twilio:', audio);
+    setTimeout(() => {
+      console.log('Sending audio to Twilio:', audio);
 
-    this.ws.send(
-      JSON.stringify({
-        streamSid: this.streamSid,
-        event: 'media',
-        media: {
-          payload: audio,
-        },
-      })
-    );
+      this.ws.send(
+        JSON.stringify({
+          streamSid: this.streamSid,
+          event: 'media',
+          media: {
+            payload: audio,
+          },
+        })
+      );
 
-    const markLabel = uuid.v4();
-    this.ws.send(
-      JSON.stringify({
-        streamSid: this.streamSid,
-        event: 'mark',
-        mark: {
-          name: markLabel
-        }
-      })
-    );
+      const markLabel = uuid.v4();
+      this.ws.send(
+        JSON.stringify({
+          streamSid: this.streamSid,
+          event: 'mark',
+          mark: {
+            name: markLabel
+          }
+        })
+      );
 
-    this.backgroundAudioTimeout = setTimeout(() => {
-      this.backgroundAudio.start();
-    }, 1000);
-    
-    this.emit('audiosent', markLabel);
+      this.backgroundAudioTimeout = setTimeout(() => {
+        this.backgroundAudio = new BackgroundAudioService();
+        this.setupBackgroundAudio();
+        this.backgroundAudio.start();
+      }, 2000);
+      
+      this.emit('audiosent', markLabel);
+    }, 100);
   }
 }
 
