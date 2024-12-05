@@ -122,6 +122,7 @@ app.ws('/connection', (ws) => {
     streamService.on('audiosent', (markLabel) => {
       marks.push(markLabel);
       backgroundAudioService.setVolume(0.01);
+      backgroundAudioService.start();
       isSpeaking = false;
       transcriptionService.resume();
     });
