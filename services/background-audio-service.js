@@ -11,7 +11,7 @@ class BackgroundAudioService extends EventEmitter {
     this.audioBuffer = null;
     this.currentPosition = 0;
     this.chunkSize = 640; // Standard size for 8kHz ulaw audio chunks
-    this.volume = 0.15; // Set default volume to 15%
+    this.volume = 0.05; // Reduce default volume to 5%
     this.loadAudioFile();
   }
 
@@ -57,16 +57,21 @@ class BackgroundAudioService extends EventEmitter {
       }
       
       if (this.streamService) {
-        // Apply volume adjustment
+        // Apply volume adjustment and convert to signed values
         const adjustedChunk = Buffer.alloc(chunk.length);
         for (let i = 0; i < chunk.length; i++) {
-          adjustedChunk[i] = Math.floor(chunk[i] * this.volume);
+          // Convert μ-law to signed integer and apply volume
+          const signed = (chunk[i] - 128) * this.volume;
+          // Convert back to μ-law range (0-255)
+          adjustedChunk[i] = Math.floor(signed + 128);
         }
-        this.streamService.buffer(0, adjustedChunk.toString('base64'));
+        
+        // Use a different stream ID for background music (1 instead of 0)
+        this.streamService.buffer(1, adjustedChunk.toString('base64'));
       }
       
-      // Schedule next chunk (20ms for 8kHz audio)
-      setTimeout(() => this.streamAudio(), 20);
+      // Increase interval to reduce audio density
+      setTimeout(() => this.streamAudio(), 40); // Changed from 20ms to 40ms
     }
   }
 
