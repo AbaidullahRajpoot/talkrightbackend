@@ -86,9 +86,9 @@ app.ws('/connection', (ws) => {
         marks = marks.filter(m => m !== msg.mark.name);
         if (marks.length === 0) {
           isSpeaking = false;
+          transcriptionService.resume();
           backgroundAudioService.start();
           backgroundAudioService.setVolume(0.01);
-          transcriptionService.resume();
         }
       } else if (msg.event === 'stop') {
         console.log(`Twilio -> Media stream ${streamSid} ended.`.underline.red);
@@ -117,6 +117,8 @@ app.ws('/connection', (ws) => {
       backgroundAudioService.stop();
       console.log(`Interaction ${icount}: TTS -> TWILIO: ${label}`.blue);
       streamService.buffer(responseIndex, audio);
+      isSpeaking = false;
+      transcriptionService.resume();
       backgroundAudioService.start();
       backgroundAudioService.setVolume(0.01);
     });
