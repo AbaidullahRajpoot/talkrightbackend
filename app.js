@@ -46,7 +46,6 @@ app.ws('/connection', (ws) => {
     const transcriptionService = new TranscriptionService();
     const ttsService = new TextToSpeechService({});
     const backgroundAudioService = new BackgroundAudioService(streamService);
-    backgroundAudioService.start();
 
     let marks = [];
     let interactionCount = 0;
@@ -86,21 +85,17 @@ app.ws('/connection', (ws) => {
         marks = marks.filter(m => m !== msg.mark.name);
         if (marks.length === 0) {
           isSpeaking = false;
-          backgroundAudioService.start();
-          backgroundAudioService.setVolume(0.01);
           transcriptionService.resume();
         }
       } else if (msg.event === 'stop') {
         console.log(`Twilio -> Media stream ${streamSid} ended.`.underline.red);
-        backgroundAudioService.stop();
-        transcriptionService.stop();
+        transcriptionService.stop();  // Stop the transcription service
       }
     });
 
     transcriptionService.on('transcription', async (text) => {
       if (!text) { return; }
       console.log(`Interaction ${interactionCount} – STT -> GPT: ${text}`.yellow);
-      backgroundAudioService.setVolume(0.01);
       gptService.completion(text, interactionCount);
       interactionCount += 1;
     });
@@ -109,21 +104,16 @@ app.ws('/connection', (ws) => {
       console.log(`Interaction ${icount}: GPT -> TTS: ${gptReply.partialResponse}`.green);
       isSpeaking = true;
       transcriptionService.pause();
-      backgroundAudioService.setVolume(0.01);
       ttsService.generate(gptReply, icount);
     });
 
     ttsService.on('speech', (responseIndex, audio, label, icount) => {
-      backgroundAudioService.stop();
       console.log(`Interaction ${icount}: TTS -> TWILIO: ${label}`.blue);
       streamService.buffer(responseIndex, audio);
     });
 
     streamService.on('audiosent', (markLabel) => {
       marks.push(markLabel);
-      backgroundAudioService.setVolume(0.01);
-      isSpeaking = false;
-      transcriptionService.resume();
     });
   } catch (err) {
     console.log(err);
