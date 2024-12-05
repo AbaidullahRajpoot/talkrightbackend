@@ -46,7 +46,6 @@ app.ws('/connection', (ws) => {
     const transcriptionService = new TranscriptionService();
     const ttsService = new TextToSpeechService({});
     const backgroundAudioService = new BackgroundAudioService(streamService);
-    backgroundAudioService.start();
 
     let marks = [];
     let interactionCount = 0;
@@ -65,14 +64,15 @@ app.ws('/connection', (ws) => {
 
         streamService.setStreamSid(streamSid);
         gptService.setCallSid(callSid);
+        // gptService.setCallerPhoneNumber(msg.start.from);
         gptService.setCallerPhoneNumber('0501575591');
 
+        // Set RECORDING_ENABLED='true' in .env to record calls
         recordingService(ttsService, callSid).then(() => {
           console.log(`Twilio -> Starting Media Stream for ${streamSid}`.underline.red);
           isSpeaking = true;
           transcriptionService.pause();
-          backgroundAudioService.stop();
-          transcriptionService.start();
+          transcriptionService.start();  // Start the transcription service
           ttsService.generate({ partialResponseIndex: null, partialResponse: `Hi there! I'm Eva from Zuleikha Hospital. How can I help you today?` }, 1);
         }).catch(err => console.error('Error in recordingService:', err));
       } else if (msg.event === 'media') {
@@ -86,20 +86,16 @@ app.ws('/connection', (ws) => {
         if (marks.length === 0) {
           isSpeaking = false;
           transcriptionService.resume();
-          backgroundAudioService.start();
-          backgroundAudioService.setVolume(0.01);
         }
       } else if (msg.event === 'stop') {
         console.log(`Twilio -> Media stream ${streamSid} ended.`.underline.red);
-        backgroundAudioService.stop();
-        transcriptionService.stop();
+        transcriptionService.stop();  // Stop the transcription service
       }
     });
 
     transcriptionService.on('transcription', async (text) => {
       if (!text) { return; }
       console.log(`Interaction ${interactionCount} – STT -> GPT: ${text}`.yellow);
-      backgroundAudioService.setVolume(0.01);
       gptService.completion(text, interactionCount);
       interactionCount += 1;
     });
@@ -108,7 +104,6 @@ app.ws('/connection', (ws) => {
       console.log(`Interaction ${icount}: GPT -> TTS: ${gptReply.partialResponse}`.green);
       isSpeaking = true;
       transcriptionService.pause();
-      backgroundAudioService.stop();
       ttsService.generate(gptReply, icount);
     });
 
@@ -119,8 +114,6 @@ app.ws('/connection', (ws) => {
 
     streamService.on('audiosent', (markLabel) => {
       marks.push(markLabel);
-      isSpeaking = true;
-      transcriptionService.pause();
     });
   } catch (err) {
     console.log(err);
