@@ -1,7 +1,6 @@
 const EventEmitter = require('events');
 const fs = require('fs');
 const path = require('path');
-
 const uuid = require('uuid');
 
 class StreamService extends EventEmitter {
@@ -13,8 +12,8 @@ class StreamService extends EventEmitter {
     this.streamSid = '';
     this.backgroundMusic = null;
     this.musicPosition = 0;
-    this.musicVolume = 0.1; // 10% volume for background music
     this.loadBackgroundMusic();
+    this.startBackgroundMusic();
   }
 
   loadBackgroundMusic() {
@@ -27,28 +26,34 @@ class StreamService extends EventEmitter {
     }
   }
 
-  mixAudioWithBackground(audioBuffer) {
-    if (!this.backgroundMusic) return audioBuffer;
-
-    const mixed = Buffer.alloc(audioBuffer.length);
-    const decodedAudio = Buffer.from(audioBuffer, 'base64');
-
-    for (let i = 0; i < decodedAudio.length; i++) {
-      // Get background music sample
-      const musicIndex = (this.musicPosition + i) % this.backgroundMusic.length;
-      const musicSample = this.backgroundMusic[musicIndex] * this.musicVolume;
+  startBackgroundMusic() {
+    if (!this.backgroundMusic) return;
+    
+    // Send a small chunk of background music every 20ms
+    setInterval(() => {
+      const chunkSize = 160; // Small chunk size for smooth playback
+      const chunk = Buffer.alloc(chunkSize);
       
-      // Mix with main audio
-      mixed[i] = Math.min(255, Math.max(0, decodedAudio[i] + musicSample));
-    }
-
-    // Update music position
-    this.musicPosition = (this.musicPosition + decodedAudio.length) % this.backgroundMusic.length;
-
-    return mixed.toString('base64');
+      // Copy music data to chunk with low volume (10%)
+      for (let i = 0; i < chunkSize; i++) {
+        const musicIndex = (this.musicPosition + i) % this.backgroundMusic.length;
+        chunk[i] = this.backgroundMusic[musicIndex] * 0.1; // 10% volume
+      }
+      
+      this.musicPosition = (this.musicPosition + chunkSize) % this.backgroundMusic.length;
+      
+      // Send background music chunk
+      this.ws.send(JSON.stringify({
+        streamSid: this.streamSid,
+        event: 'media',
+        media: {
+          payload: chunk.toString('base64'),
+        },
+      }));
+    }, 20); // 20ms interval for smooth playback
   }
 
-  setStreamSid (streamSid) {
+  setStreamSid(streamSid) {
     this.streamSid = streamSid;
   }
 
@@ -56,15 +61,13 @@ class StreamService extends EventEmitter {
     this.sendAudio(audio);
   }
 
-  sendAudio (audio) {
-    const mixedAudio = this.mixAudioWithBackground(audio);
-    
+  sendAudio(audio) {
     this.ws.send(
       JSON.stringify({
         streamSid: this.streamSid,
         event: 'media',
         media: {
-          payload: mixedAudio,
+          payload: audio,
         },
       })
     );
@@ -83,4 +86,4 @@ class StreamService extends EventEmitter {
   }
 }
 
-module.exports = {StreamService};
+module.exports = { StreamService };
