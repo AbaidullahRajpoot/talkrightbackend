@@ -97,6 +97,10 @@ app.ws('/connection', (ws) => {
     transcriptionService.on('transcription', async (text) => {
       if (!text) { return; }
       console.log(`Interaction ${interactionCount} – STT -> GPT: ${text}`.yellow);
+      
+      // Pause background music during speech processing
+      backgroundAudioService.stop();
+
       gptService.completion(text, interactionCount);
       interactionCount += 1;
     });
@@ -106,6 +110,9 @@ app.ws('/connection', (ws) => {
       isSpeaking = true;
       transcriptionService.pause();
       ttsService.generate(gptReply, icount);
+
+      // Resume background music after speech processing
+      backgroundAudioService.start();
     });
 
     ttsService.on('speech', (responseIndex, audio, label, icount) => {
