@@ -65,15 +65,14 @@ app.ws('/connection', (ws) => {
 
         streamService.setStreamSid(streamSid);
         gptService.setCallSid(callSid);
-        // gptService.setCallerPhoneNumber(msg.start.from);
         gptService.setCallerPhoneNumber('0501575591');
 
-        // Set RECORDING_ENABLED='true' in .env to record calls
         recordingService(ttsService, callSid).then(() => {
           console.log(`Twilio -> Starting Media Stream for ${streamSid}`.underline.red);
           isSpeaking = true;
           transcriptionService.pause();
-          transcriptionService.start();  // Start the transcription service
+          backgroundAudioService.stop();
+          transcriptionService.start();
           ttsService.generate({ partialResponseIndex: null, partialResponse: `Hi there! I'm Eva from Zuleikha Hospital. How can I help you today?` }, 1);
         }).catch(err => console.error('Error in recordingService:', err));
       } else if (msg.event === 'media') {
@@ -109,25 +108,19 @@ app.ws('/connection', (ws) => {
       console.log(`Interaction ${icount}: GPT -> TTS: ${gptReply.partialResponse}`.green);
       isSpeaking = true;
       transcriptionService.pause();
-      backgroundAudioService.setVolume(0.01);
+      backgroundAudioService.stop();
       ttsService.generate(gptReply, icount);
     });
 
     ttsService.on('speech', (responseIndex, audio, label, icount) => {
-      backgroundAudioService.stop();
       console.log(`Interaction ${icount}: TTS -> TWILIO: ${label}`.blue);
       streamService.buffer(responseIndex, audio);
-      isSpeaking = false;
-      transcriptionService.resume();
-      backgroundAudioService.start();
-      backgroundAudioService.setVolume(0.01);
     });
 
     streamService.on('audiosent', (markLabel) => {
       marks.push(markLabel);
-      backgroundAudioService.setVolume(0.01);
-      isSpeaking = false;
-      transcriptionService.resume();
+      isSpeaking = true;
+      transcriptionService.pause();
     });
   } catch (err) {
     console.log(err);
