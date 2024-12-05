@@ -17,7 +17,6 @@ class BackgroundAudioService extends EventEmitter {
 
   loadAudioFile() {
     try {
-      // Load your background music file (should be in ulaw 8kHz format)
       const audioPath = path.join(__dirname, '../assets/background-music.raw');
       this.audioBuffer = fs.readFileSync(audioPath);
       console.log('Background music loaded successfully');
@@ -27,13 +26,18 @@ class BackgroundAudioService extends EventEmitter {
   }
 
   start() {
-    if (!this.audioBuffer) return;
+    if (!this.audioBuffer) {
+      console.error('No audio buffer available');
+      return;
+    }
     this.isPlaying = true;
     this.streamAudio();
+    console.log('Background music started');
   }
 
   stop() {
     this.isPlaying = false;
+    console.log('Background music stopped');
   }
 
   streamAudio() {
@@ -45,9 +49,11 @@ class BackgroundAudioService extends EventEmitter {
     );
 
     if (chunk.length > 0) {
+      // Update position and loop if necessary
       this.currentPosition += this.chunkSize;
       if (this.currentPosition >= this.audioBuffer.length) {
         this.currentPosition = 0; // Loop the audio
+        console.log('Background music looping');
       }
       
       if (this.streamService) {
@@ -67,6 +73,7 @@ class BackgroundAudioService extends EventEmitter {
   setVolume(volume) {
     // Volume should be between 0 and 1
     this.volume = Math.max(0, Math.min(1, volume));
+    console.log(`Background music volume set to ${this.volume * 100}%`);
   }
 }
 
