@@ -1,7 +1,7 @@
 const EventEmitter = require('events');
 const { Buffer } = require('node:buffer');
 const fs = require('fs');
-const path = require('path');
+const path = require('path'); 
 
 class BackgroundAudioService extends EventEmitter {
   constructor(streamService) {
