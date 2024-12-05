@@ -117,6 +117,8 @@ app.ws('/connection', (ws) => {
       backgroundAudioService.stop();
       console.log(`Interaction ${icount}: TTS -> TWILIO: ${label}`.blue);
       streamService.buffer(responseIndex, audio);
+      backgroundAudioService.start();
+      backgroundAudioService.setVolume(0.01);
     });
 
     streamService.on('audiosent', (markLabel) => {
