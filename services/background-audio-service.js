@@ -1,7 +1,7 @@
 const EventEmitter = require('events');
 const { Buffer } = require('node:buffer');
 const fs = require('fs');
-const path = require('path'); 
+const path = require('path');
 
 class BackgroundAudioService extends EventEmitter {
   constructor(streamService) {
@@ -11,7 +11,7 @@ class BackgroundAudioService extends EventEmitter {
     this.audioBuffer = null;
     this.currentPosition = 0;
     this.chunkSize = 640; // Standard size for 8kHz ulaw audio chunks
-    this.volume = 0.3; // Set default volume to 30%
+    this.volume = 0.15; // Set default volume to 15%
     this.loadAudioFile();
   }
 
@@ -20,6 +20,7 @@ class BackgroundAudioService extends EventEmitter {
       // Load your background music file (should be in ulaw 8kHz format)
       const audioPath = path.join(__dirname, '../assets/background-music.raw');
       this.audioBuffer = fs.readFileSync(audioPath);
+      console.log('Background music loaded successfully');
     } catch (error) {
       console.error('Error loading background music:', error);
     }
@@ -33,7 +34,6 @@ class BackgroundAudioService extends EventEmitter {
 
   stop() {
     this.isPlaying = false;
-    this.currentPosition = 0;
   }
 
   streamAudio() {
@@ -51,7 +51,12 @@ class BackgroundAudioService extends EventEmitter {
       }
       
       if (this.streamService) {
-        this.streamService.buffer(0, chunk.toString('base64'));
+        // Apply volume adjustment
+        const adjustedChunk = Buffer.alloc(chunk.length);
+        for (let i = 0; i < chunk.length; i++) {
+          adjustedChunk[i] = Math.floor(chunk[i] * this.volume);
+        }
+        this.streamService.buffer(0, adjustedChunk.toString('base64'));
       }
       
       // Schedule next chunk (20ms for 8kHz audio)
@@ -62,15 +67,6 @@ class BackgroundAudioService extends EventEmitter {
   setVolume(volume) {
     // Volume should be between 0 and 1
     this.volume = Math.max(0, Math.min(1, volume));
-    
-    // If we have an audio buffer, adjust its volume
-    if (this.audioBuffer) {
-      const adjustedBuffer = Buffer.alloc(this.audioBuffer.length);
-      for (let i = 0; i < this.audioBuffer.length; i++) {
-        adjustedBuffer[i] = Math.floor(this.audioBuffer[i] * this.volume);
-      }
-      this.audioBuffer = adjustedBuffer;
-    }
   }
 }
 
