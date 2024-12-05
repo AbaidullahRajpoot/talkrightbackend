@@ -19,7 +19,7 @@ class TextToSpeechService extends EventEmitter {
     try {
       const outputFormat = 'ulaw_8000';
       const response = await fetch(
-        `https://api.elevenlabs.io/v1/text-to-speech/${this.config.voiceId}/stream?output_format=${outputFormat}&optimize_streaming_latency=3`,
+        `https://api.elevenlabs.io/v1/text-to-speech/${this.config.voiceId}/stream?output_format=${outputFormat}`,
         {
           method: 'POST',
           headers: {
@@ -32,24 +32,13 @@ class TextToSpeechService extends EventEmitter {
             model_id: "eleven_turbo_v2_5",
             voice_settings: {
               stability: 0.75,
-              similarity_boost: 1.0,
-              style: 0.0,
-              use_speaker_boost: true,
-              background_music: {
-                enabled: true,
-                volume: 0.1
-              }
+              similarity_boost: 1.0
             }
           }),
         }
       );
-
-      if (response.status === 200) {
-        const audioArrayBuffer = await response.arrayBuffer();
-        this.emit('speech', 0, Buffer.from(audioArrayBuffer).toString('base64'), partialResponse, interactionCount);
-      } else {
-        console.error('ElevenLabs Error:', await response.json());
-      }
+      const audioArrayBuffer = await response.arrayBuffer();
+      this.emit('speech', 0, Buffer.from(audioArrayBuffer).toString('base64'), partialResponse, interactionCount);
     } catch (err) {
       console.error('Error occurred in TextToSpeech service');
       console.error(err);
