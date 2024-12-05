@@ -118,7 +118,7 @@ app.ws('/connection', (ws) => {
     });
 
     // Start background music with low volume
-    backgroundAudioService.setVolume(0.1); // Set volume to 15%
+    backgroundAudioService.setVolume(0.01); // Set volume to 15%
     backgroundAudioService.start();
   } catch (err) {
     console.log(err);
