@@ -50,6 +50,7 @@ app.ws('/connection', (ws) => {
     let marks = [];
     let interactionCount = 0;
     let isSpeaking = false;
+    let isBackgroundMusicOnly = true;
 
     transcriptionService.on('error', (error) => {
       console.error('Critical transcription service error:', error);
@@ -71,12 +72,13 @@ app.ws('/connection', (ws) => {
         recordingService(ttsService, callSid).then(() => {
           console.log(`Twilio -> Starting Media Stream for ${streamSid}`.underline.red);
           isSpeaking = true;
+          isBackgroundMusicOnly = false;
           transcriptionService.pause();
           transcriptionService.start();  // Start the transcription service
           ttsService.generate({ partialResponseIndex: null, partialResponse: `Hi there! I'm Eva from Zuleikha Hospital. How can I help you today?` }, 1);
         }).catch(err => console.error('Error in recordingService:', err));
       } else if (msg.event === 'media') {
-        if (!isSpeaking) {
+        if (!isSpeaking && !isBackgroundMusicOnly) {
           transcriptionService.send(msg.media.payload);
         }
       } else if (msg.event === 'mark') {
@@ -85,6 +87,7 @@ app.ws('/connection', (ws) => {
         marks = marks.filter(m => m !== msg.mark.name);
         if (marks.length === 0) {
           isSpeaking = false;
+          isBackgroundMusicOnly = true;
           transcriptionService.resume();
         }
       } else if (msg.event === 'stop') {
@@ -97,22 +100,15 @@ app.ws('/connection', (ws) => {
     transcriptionService.on('transcription', async (text) => {
       if (!text) { return; }
       console.log(`Interaction ${interactionCount} – STT -> GPT: ${text}`.yellow);
-      
-      // Pause background music during speech processing
-      backgroundAudioService.stop();
-
       gptService.completion(text, interactionCount);
       interactionCount += 1;
-    });
+    }); 
 
     gptService.on('gptreply', async (gptReply, icount) => {
       console.log(`Interaction ${icount}: GPT -> TTS: ${gptReply.partialResponse}`.green);
       isSpeaking = true;
       transcriptionService.pause();
       ttsService.generate(gptReply, icount);
-
-      // Resume background music after speech processing
-      backgroundAudioService.start();
     });
 
     ttsService.on('speech', (responseIndex, audio, label, icount) => {
@@ -127,6 +123,7 @@ app.ws('/connection', (ws) => {
     // Start background music with low volume
     backgroundAudioService.setVolume(0.01); // Set volume to 15%
     backgroundAudioService.start();
+    isBackgroundMusicOnly = true;
   } catch (err) {
     console.log(err);
   }
