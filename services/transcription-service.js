@@ -56,10 +56,16 @@ class TranscriptionService extends EventEmitter {
       model: 'nova-2-phonecall',
       punctuate: true,
       interim_results: true,
-      // Balanced endpointing
-      endpointing: 400,
-      // Balanced utterance end time
-      utterance_end_ms: 1250
+      // Add background music handling parameters
+      background_music: true,
+      // Increase smart format to better handle mixed audio
+      smart_format: true,
+      // Adjust detection threshold for speech vs music
+      vad_turnoff: 500,
+      // Increase endpointing to account for music gaps
+      endpointing: 800,
+      // Increase utterance end time for music scenarios
+      utterance_end_ms: 2000
     });
 
     this.setupEventListeners();

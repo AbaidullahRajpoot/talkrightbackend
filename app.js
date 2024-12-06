@@ -23,7 +23,6 @@ const PORT = process.env.PORT || 5000;
 app.post('/incoming', (req, res) => {
   try {
     const response = new VoiceResponse();
-    response.say('Hello! how are you?');
     const connect = response.connect();
     connect.stream({ url: `wss://${process.env.SERVER}/connection` });
 
