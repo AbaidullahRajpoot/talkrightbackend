@@ -50,11 +50,9 @@ app.ws('/connection', (ws) => {
     let marks = [];
     let interactionCount = 0;
     let isSpeaking = false;
-    let isBackgroundMusicOnly = false;
 
     transcriptionService.on('error', (error) => {
       console.error('Critical transcription service error:', error);
-      // Handle the error appropriately (e.g., end the call, notify the user)
     });
 
     ws.on('message', function message(data) {
@@ -65,20 +63,19 @@ app.ws('/connection', (ws) => {
 
         streamService.setStreamSid(streamSid);
         gptService.setCallSid(callSid);
-        // gptService.setCallerPhoneNumber(msg.start.from);
         gptService.setCallerPhoneNumber('0501575591');
 
-        // Set RECORDING_ENABLED='true' in .env to record calls
         recordingService(ttsService, callSid).then(() => {
           console.log(`Twilio -> Starting Media Stream for ${streamSid}`.underline.red);
           isSpeaking = true;
-          isBackgroundMusicOnly = false;
-          transcriptionService.pause();
-          transcriptionService.start();  // Start the transcription service
+          transcriptionService.start();  // Start immediately
+          console.log('Transcription service started');  // Debug log
           ttsService.generate({ partialResponseIndex: null, partialResponse: `Hi there! I'm Eva from Zuleikha Hospital. How can I help you today?` }, 1);
         }).catch(err => console.error('Error in recordingService:', err));
       } else if (msg.event === 'media') {
+        console.log('Media event received, isSpeaking:', isSpeaking);  // Debug log
         if (!isSpeaking) {
+          console.log('Sending media to transcription service');  // Debug log
           transcriptionService.send(msg.media.payload);
         }
       } else if (msg.event === 'mark') {
