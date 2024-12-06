@@ -50,9 +50,11 @@ app.ws('/connection', (ws) => {
     let marks = [];
     let interactionCount = 0;
     let isSpeaking = false;
+    let isBackgroundMusicOnly = true;
 
     transcriptionService.on('error', (error) => {
       console.error('Critical transcription service error:', error);
+      // Handle the error appropriately (e.g., end the call, notify the user)
     });
 
     ws.on('message', function message(data) {
@@ -63,19 +65,20 @@ app.ws('/connection', (ws) => {
 
         streamService.setStreamSid(streamSid);
         gptService.setCallSid(callSid);
+        // gptService.setCallerPhoneNumber(msg.start.from);
         gptService.setCallerPhoneNumber('0501575591');
 
+        // Set RECORDING_ENABLED='true' in .env to record calls
         recordingService(ttsService, callSid).then(() => {
           console.log(`Twilio -> Starting Media Stream for ${streamSid}`.underline.red);
           isSpeaking = true;
-          transcriptionService.start();  // Start immediately
-          console.log('Transcription service started');  // Debug log
+          isBackgroundMusicOnly = false;
+          transcriptionService.pause();
+          transcriptionService.start();  // Start the transcription service
           ttsService.generate({ partialResponseIndex: null, partialResponse: `Hi there! I'm Eva from Zuleikha Hospital. How can I help you today?` }, 1);
         }).catch(err => console.error('Error in recordingService:', err));
       } else if (msg.event === 'media') {
-        console.log('Media event received, isSpeaking:', isSpeaking);  // Debug log
-        if (!isSpeaking) {
-          console.log('Sending media to transcription service');  // Debug log
+        if (!isSpeaking && !isBackgroundMusicOnly) {
           transcriptionService.send(msg.media.payload);
         }
       } else if (msg.event === 'mark') {
@@ -84,6 +87,7 @@ app.ws('/connection', (ws) => {
         marks = marks.filter(m => m !== msg.mark.name);
         if (marks.length === 0) {
           isSpeaking = false;
+          isBackgroundMusicOnly = true;
           transcriptionService.resume();
         }
       } else if (msg.event === 'stop') {
@@ -119,6 +123,7 @@ app.ws('/connection', (ws) => {
     // Start background music with low volume
     backgroundAudioService.setVolume(0.01); // Set volume to 15%
     backgroundAudioService.start();
+    isBackgroundMusicOnly = true;
   } catch (err) {
     console.log(err);
   }
