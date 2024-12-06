@@ -9,6 +9,7 @@ const { StreamService } = require('./services/stream-service');
 const { TranscriptionService } = require('./services/transcription-service');
 const { TextToSpeechService } = require('./services/tts-service');
 const { recordingService } = require('./services/recording-service');
+const { BackgroundAudioService } = require('./services/background-audio-service');
 
 const VoiceResponse = require('twilio').twiml.VoiceResponse;
 
@@ -22,22 +23,50 @@ app.post('/incoming', (req, res) => {
   try {
     const response = new VoiceResponse();
     
-    // Create a conference room with background music
+    // Start a stream and connect to conference
+    response.connect()
+      .stream({
+        url: `wss://${process.env.SERVER_DOMAIN}/connection`
+      });
+    
+    // Add to conference after setting up stream
     const dial = response.dial();
-    dial.conference({
+    dial.conference('ConferenceRoom', {
       startConferenceOnEnter: true,
-      endConferenceOnExit: true,
-      waitUrl:'https://api.twilio.com/cowbell.mp3', // URL to your music file
-      waitMethod: 'GET'
-    }, 'RoomWith_' + Date.now()); // Unique conference name
-
-    // Connect the stream for voice processing
-    const connect = response.connect();
-    connect.stream({ url: `wss://${process.env.SERVER}/connection` });
+      endConferenceOnExit: false,
+      waitUrl: 'https://api.twilio.com/cowbell.mp3',
+      waitMethod: 'GET',
+      beep: false // Disable join/leave beeps
+    });
 
     res.type('text/xml');
     res.end(response.toString());
     
+  } catch (err) {
+    console.log(err);
+  }
+});
+
+app.post('/join-conference', (req, res) => {
+  try {
+    const response = new VoiceResponse();
+    
+    // First set up the stream for AI
+    response.connect()
+      .stream({
+        url: `wss://${process.env.SERVER_DOMAIN}/connection`
+      });
+    
+    // Then connect to conference
+    const dial = response.dial();
+    dial.conference('ConferenceRoom', {
+      startConferenceOnEnter: true,
+      endConferenceOnExit: false,
+      beep: false
+    });
+
+    res.type('text/xml');
+    res.end(response.toString());
   } catch (err) {
     console.log(err);
   }
@@ -53,6 +82,7 @@ app.ws('/connection', (ws) => {
     const streamService = new StreamService(ws);
     const transcriptionService = new TranscriptionService();
     const ttsService = new TextToSpeechService({});
+    const backgroundAudioService = new BackgroundAudioService(streamService);
 
     let marks = [];
     let interactionCount = 0;
@@ -100,6 +130,7 @@ app.ws('/connection', (ws) => {
       } else if (msg.event === 'stop') {
         console.log(`Twilio -> Media stream ${streamSid} ended.`.underline.red);
         transcriptionService.stop();  // Stop the transcription service
+        backgroundAudioService.stop(); // Stop the background music
       }
     });
 
@@ -125,6 +156,10 @@ app.ws('/connection', (ws) => {
     streamService.on('audiosent', (markLabel) => {
       marks.push(markLabel);
     });
+
+    // Start background music with low volume
+    backgroundAudioService.setVolume(0.01); // Set volume to 15%
+    backgroundAudioService.start();
   } catch (err) {
     console.log(err);
   }
