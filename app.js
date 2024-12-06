@@ -9,7 +9,6 @@ const { StreamService } = require('./services/stream-service');
 const { TranscriptionService } = require('./services/transcription-service');
 const { TextToSpeechService } = require('./services/tts-service');
 const { recordingService } = require('./services/recording-service');
-const { BackgroundAudioService } = require('./services/background-audio-service');
 
 const VoiceResponse = require('twilio').twiml.VoiceResponse;
 
@@ -22,13 +21,22 @@ const PORT = process.env.PORT || 5000;
 app.post('/incoming', (req, res) => {
   try {
     const response = new VoiceResponse();
+    
+    // Create a conference room with background music
+    const dial = response.dial();
+    dial.conference({
+      startConferenceOnEnter: true,
+      endConferenceOnExit: true,
+      waitUrl:'https://api.twilio.com/cowbell.mp3', // URL to your music file
+      waitMethod: 'GET'
+    }, 'RoomWith_' + Date.now()); // Unique conference name
+
+    // Connect the stream for voice processing
     const connect = response.connect();
     connect.stream({ url: `wss://${process.env.SERVER}/connection` });
 
     res.type('text/xml');
     res.end(response.toString());
-
-    console.log('response',response);
     
   } catch (err) {
     console.log(err);
@@ -45,7 +53,6 @@ app.ws('/connection', (ws) => {
     const streamService = new StreamService(ws);
     const transcriptionService = new TranscriptionService();
     const ttsService = new TextToSpeechService({});
-    const backgroundAudioService = new BackgroundAudioService(streamService);
 
     let marks = [];
     let interactionCount = 0;
@@ -93,7 +100,6 @@ app.ws('/connection', (ws) => {
       } else if (msg.event === 'stop') {
         console.log(`Twilio -> Media stream ${streamSid} ended.`.underline.red);
         transcriptionService.stop();  // Stop the transcription service
-        backgroundAudioService.stop(); // Stop the background music
       }
     });
 
@@ -119,10 +125,6 @@ app.ws('/connection', (ws) => {
     streamService.on('audiosent', (markLabel) => {
       marks.push(markLabel);
     });
-
-    // Start background music with low volume
-    backgroundAudioService.setVolume(0.01); // Set volume to 15%
-    backgroundAudioService.start();
   } catch (err) {
     console.log(err);
   }
