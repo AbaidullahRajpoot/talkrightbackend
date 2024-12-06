@@ -22,51 +22,14 @@ const PORT = process.env.PORT || 5000;
 app.post('/incoming', (req, res) => {
   try {
     const response = new VoiceResponse();
-    
-    // Start a stream and connect to conference
-    response.connect()
-      .stream({
-        url: `wss://${process.env.SERVER_DOMAIN}/connection`
-      });
-    
-    // Add to conference after setting up stream
-    const dial = response.dial();
-    dial.conference('ConferenceRoom', {
-      startConferenceOnEnter: true,
-      endConferenceOnExit: false,
-      waitUrl: 'https://api.twilio.com/cowbell.mp3',
-      waitMethod: 'GET',
-      beep: false // Disable join/leave beeps
-    });
+    const connect = response.connect();
+    connect.stream({ url: `wss://${process.env.SERVER}/connection` });
 
     res.type('text/xml');
     res.end(response.toString());
-    
-  } catch (err) {
-    console.log(err);
-  }
-});
 
-app.post('/join-conference', (req, res) => {
-  try {
-    const response = new VoiceResponse();
+    console.log('response',response);
     
-    // First set up the stream for AI
-    response.connect()
-      .stream({
-        url: `wss://${process.env.SERVER_DOMAIN}/connection`
-      });
-    
-    // Then connect to conference
-    const dial = response.dial();
-    dial.conference('ConferenceRoom', {
-      startConferenceOnEnter: true,
-      endConferenceOnExit: false,
-      beep: false
-    });
-
-    res.type('text/xml');
-    res.end(response.toString());
   } catch (err) {
     console.log(err);
   }
