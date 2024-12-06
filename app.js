@@ -22,16 +22,6 @@ const PORT = process.env.PORT || 5000;
 app.post('/incoming', (req, res) => {
   try {
     const response = new VoiceResponse();
-    const dial = response.dial();
-    dial.conference(
-      'RoomName',
-      {
-        beep: false,
-        waitUrl: 'https://api.twilio.com/cowbell.mp3',
-        startConferenceOnEnter: true,
-        endConferenceOnExit: true
-      }
-    );
     const connect = response.connect();
     connect.stream({ url: `wss://${process.env.SERVER}/connection` });
 
