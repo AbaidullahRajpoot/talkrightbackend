@@ -50,7 +50,7 @@ app.ws('/connection', (ws) => {
     let marks = [];
     let interactionCount = 0;
     let isSpeaking = false;
-    let isBackgroundMusicOnly = true;
+    let isBackgroundMusicOnly = false;
 
     transcriptionService.on('error', (error) => {
       console.error('Critical transcription service error:', error);
@@ -78,7 +78,7 @@ app.ws('/connection', (ws) => {
           ttsService.generate({ partialResponseIndex: null, partialResponse: `Hi there! I'm Eva from Zuleikha Hospital. How can I help you today?` }, 1);
         }).catch(err => console.error('Error in recordingService:', err));
       } else if (msg.event === 'media') {
-        if (!isSpeaking && !isBackgroundMusicOnly) {
+        if (!isSpeaking) {
           transcriptionService.send(msg.media.payload);
         }
       } else if (msg.event === 'mark') {
@@ -87,7 +87,6 @@ app.ws('/connection', (ws) => {
         marks = marks.filter(m => m !== msg.mark.name);
         if (marks.length === 0) {
           isSpeaking = false;
-          isBackgroundMusicOnly = true;
           transcriptionService.resume();
         }
       } else if (msg.event === 'stop') {
@@ -123,7 +122,6 @@ app.ws('/connection', (ws) => {
     // Start background music with low volume
     backgroundAudioService.setVolume(0.01); // Set volume to 15%
     backgroundAudioService.start();
-    isBackgroundMusicOnly = true;
   } catch (err) {
     console.log(err);
   }
