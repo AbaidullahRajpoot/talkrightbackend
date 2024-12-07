@@ -17,7 +17,7 @@ const VoiceResponse = require('twilio').twiml.VoiceResponse;
 
 const ffmpeg = require('fluent-ffmpeg');
 const fs = require('fs');
-// Assuming musicStream is a file stream
+
 const musicFilePath = path.join(__dirname, './assets/background.mp3');
 const musicBuffer = fs.readFileSync(musicFilePath);
 
@@ -36,8 +36,8 @@ app.post('/incoming', (req, res) => {
     res.type('text/xml');
     res.end(response.toString());
 
-    console.log('response',response);
-    
+    console.log('response', response);
+
   } catch (err) {
     console.log(err);
   }
@@ -110,7 +110,7 @@ app.ws('/connection', (ws) => {
       console.log(`Interaction ${interactionCount} – STT -> GPT: ${text}`.yellow);
       gptService.completion(text, interactionCount);
       interactionCount += 1;
-    }); 
+    });
 
     gptService.on('gptreply', async (gptReply, icount) => {
       console.log(`Interaction ${icount}: GPT -> TTS: ${gptReply.partialResponse}`.green);
@@ -122,40 +122,45 @@ app.ws('/connection', (ws) => {
     ttsService.on('speech', async (responseIndex, audioBase64, label, icount) => {
       try {
         console.log(`Interaction ${icount}: TTS -> TWILIO: ${label}`.blue);
-        
-        // Create readable streams from the audio data
-        const speechBuffer = Buffer.from(audioBase64, 'base64');
-        const speechStream = Readable.from(speechBuffer);
-        const musicStream = Readable.from(musicBuffer);
-    
+        // Convert base64 to buffer
+        const audioBuffer = Buffer.from(audioBase64, 'base64');
+
+        // Create a temporary file for the speech audio
+        fs.writeFileSync('speech.mp3', audioBuffer);
+
+        // Updated ffmpeg command with error handling for input files
         const mixed = await new Promise((resolve, reject) => {
-          const outputChunks = [];
-          const ffmpegCommand = ffmpeg()
-            .input(speechStream)
-            .inputFormat('mp3')
-            .input(musicStream)
-            .inputFormat('mp3')
+          const command = ffmpeg()
+            .input('speech.mp3')
+            .input(musicFilePath)
             .complexFilter([
-              '[0:a]volume=1[a0]',     // Speech volume
-              '[1:a]volume=0.3[a1]',   // Background music volume
+              '[0:a]volume=0.4[a0]',
+              '[1:a]volume=1.2[a1]',
               '[a0][a1]amix=inputs=2:duration=first[out]'
             ], ['out'])
-            .toFormat('mp3')
-            .on('error', (err) => {
-              console.error('FFmpeg error:', err);
-              reject(err);
+            .on('start', (commandLine) => {
+              console.log('FFmpeg command:', commandLine);
             })
             .on('end', () => {
-              resolve(Buffer.concat(outputChunks));
-            });
-    
-          const ffmpegOutputStream = ffmpegCommand.pipe();
-          ffmpegOutputStream.on('data', (chunk) => {
-            outputChunks.push(chunk);
-          });
+              // Read the output file and convert to base64
+              const mixedBuffer = fs.readFileSync('output.mp3');
+              const mixedBase64 = mixedBuffer.toString('base64');
+              // Clean up temporary files
+              fs.unlinkSync('speech.mp3');
+              fs.unlinkSync('output.mp3');
+              resolve(mixedBase64);
+            })
+            .on('error', (err) => {
+              console.error('FFmpeg error:', err);
+              // Clean up temporary file if it exists
+              if (fs.existsSync('speech.mp3')) {
+                fs.unlinkSync('speech.mp3');
+              }
+              reject(err);
+            })
+            .save('output.mp3');
         });
-    
-        console.log('mixed', mixed);
+
         streamService.buffer(responseIndex, mixed);
       } catch (error) {
         console.error('Error mixing audio:', error);
