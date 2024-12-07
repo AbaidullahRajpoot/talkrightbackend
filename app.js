@@ -121,19 +121,30 @@ app.ws('/connection', (ws) => {
     ttsService.on('speech', async (responseIndex, audioBase64, label, icount) => {
       try {
         console.log(`Interaction ${icount}: TTS -> TWILIO: ${label}`.blue);
-    
-        // Convert base64 to buffer
-        const audioBuffer = Buffer.from(audioBase64, 'base64');
-    
+
+        // Define the directory for speech file
+        const speechDir = path.join(__dirname, './assets/'); // Adjust the path as needed
+        if (!fs.existsSync(speechDir)) {
+          fs.mkdirSync(speechDir);
+        }
+
         // Create a temporary file for the speech audio
-        const speechFilePath = path.resolve('speech.mp3');
+        const speechFilePath = path.join(speechDir, 'speech.mp3');
         fs.writeFileSync(speechFilePath, audioBuffer);
-    
+
         // Check if the file was created successfully
         if (!fs.existsSync(speechFilePath)) {
           throw new Error('Speech file was not created successfully.');
         }
-    
+
+        // Define the path for the music file
+        const musicFilePath = path.join(__dirname, './assets/background.mp3');
+
+        // Check if the music file exists
+        if (!fs.existsSync(musicFilePath)) {
+          throw new Error('Music file does not exist.');
+        }
+
         // Updated ffmpeg command with error handling for input files
         const mixed = await new Promise((resolve, reject) => {
           const command = ffmpeg()
@@ -153,7 +164,7 @@ app.ws('/connection', (ws) => {
                 const outputFilePath = path.resolve('output.mp3');
                 const mixedBuffer = fs.readFileSync(outputFilePath);
                 const mixedBase64 = mixedBuffer.toString('base64');
-                
+
                 // Clean up temporary files
                 fs.unlinkSync(speechFilePath);
                 fs.unlinkSync(outputFilePath);
@@ -172,7 +183,7 @@ app.ws('/connection', (ws) => {
             })
             .save(path.resolve('output.mp3'));
         });
-    
+
         streamService.buffer(responseIndex, mixed);
       } catch (error) {
         console.error('Error mixing audio:', error);
