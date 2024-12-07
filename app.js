@@ -125,7 +125,7 @@ app.ws('/connection', (ws) => {
         // Create temporary files with absolute paths
         const timestamp = Date.now();
         const speechFile = `/tmp/speech_${timestamp}.raw`;
-        const outputFile = `/tmp/output_${timestamp}.raw`;  // Changed to .raw for output
+        const outputFile = `/tmp/output_${timestamp}.raw`;
         const audioBuffer = Buffer.from(audioBase64, 'base64');
         
         // Write the audio file
@@ -152,9 +152,28 @@ app.ws('/connection', (ws) => {
               '-ac', '1'
             ])
             .input(musicStream)
+            .complexFilter([
+              {
+                filter: 'volume',
+                options: { volume: 1 },
+                inputs: '0:a',
+                outputs: 'speech'
+              },
+              {
+                filter: 'volume',
+                options: { volume: 0.3 },
+                inputs: '1:a',
+                outputs: 'music'
+              },
+              {
+                filter: 'amix',
+                options: { inputs: 2 },
+                inputs: ['speech', 'music'],
+                outputs: 'output'
+              }
+            ])
             .outputOptions([
-              '-filter_complex', '[0:a][1:a]amix=inputs=2:duration=first:weights=1,0.3[out]',
-              '-map', '[out]',
+              '-map', '[output]',
               '-f', 's16le',
               '-ar', '24000',
               '-ac', '1'
