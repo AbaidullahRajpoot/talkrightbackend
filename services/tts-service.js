@@ -19,8 +19,8 @@ class TextToSpeechService extends EventEmitter {
     try {
       const outputFormat = 'ulaw_8000';
       const response = await fetch(
-        // `https://api.elevenlabs.io/v1/text-to-speech/${this.config.voiceId}/stream?output_format=${outputFormat}`,
-        `https://api.elevenlabs.io/v1/text-to-speech/${this.config.voiceId}/stream`,
+        `https://api.elevenlabs.io/v1/text-to-speech/${this.config.voiceId}/stream?output_format=${outputFormat}`,
+        // `https://api.elevenlabs.io/v1/text-to-speech/${this.config.voiceId}/stream`,
         {
           method: 'POST',
           headers: {
