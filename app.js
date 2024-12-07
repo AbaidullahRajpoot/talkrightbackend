@@ -94,7 +94,7 @@ app.ws('/connection', (ws) => {
       } else if (msg.event === 'stop') {
         console.log(`Twilio -> Media stream ${streamSid} ended.`.underline.red);
         transcriptionService.stop();  // Stop the transcription service
-        backgroundAudioService.stop(); // Stop the background music
+        // backgroundAudioService.stop(); // Stop the background music
       }
     });
 
@@ -122,8 +122,8 @@ app.ws('/connection', (ws) => {
     });
 
     // Start background music with low volume
-    backgroundAudioService.setVolume(0.01); // Set volume to 15%
-    backgroundAudioService.start();
+    // backgroundAudioService.setVolume(0.01); // Set volume to 15%
+    // backgroundAudioService.start();
   } catch (err) {
     console.log(err);
   }
