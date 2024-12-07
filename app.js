@@ -4,6 +4,7 @@ require('colors');
 const express = require('express');
 const ExpressWs = require('express-ws');
 const { Readable } = require('stream');
+const path = require('path');
 
 const { GptService } = require('./services/gpt-service');
 const { StreamService } = require('./services/stream-service');
@@ -16,7 +17,9 @@ const VoiceResponse = require('twilio').twiml.VoiceResponse;
 
 const ffmpeg = require('fluent-ffmpeg');
 const fs = require('fs');
-const musicStream = './assets/background.mp3'; // Adjust path as needed
+// Assuming musicStream is a file stream
+const musicFilePath = path.join(__dirname, './assets/background.mp3');
+const musicStream = fs.createReadStream(musicFilePath);
 
 const app = express();
 ExpressWs(app);
