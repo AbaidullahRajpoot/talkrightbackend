@@ -3,7 +3,6 @@ require('colors');
 
 const express = require('express');
 const ExpressWs = require('express-ws');
-const { Readable } = require('stream');
 
 const { GptService } = require('./services/gpt-service');
 const { StreamService } = require('./services/stream-service');
@@ -14,9 +13,6 @@ const { BackgroundAudioService } = require('./services/background-audio-service'
 
 const VoiceResponse = require('twilio').twiml.VoiceResponse;
 
-const ffmpeg = require('fluent-ffmpeg');
-const fs = require('fs');
-const musicStream = './assets/background.mp3'; // Adjust path as needed
 
 const app = express();
 ExpressWs(app);
@@ -116,53 +112,9 @@ app.ws('/connection', (ws) => {
       ttsService.generate(gptReply, icount);
     });
 
-    ttsService.on('speech', async (responseIndex, audioBase64, label, icount) => {
-      try {
-        console.log(`Interaction ${icount}: TTS -> TWILIO: ${label}`.blue);
-        
-        // Convert base64 to buffer
-        const audioBuffer = Buffer.from(audioBase64, 'base64');
-            
-        // Create a temporary file for the speech audio
-        fs.writeFileSync('speech.mp3', audioBuffer);
-        
-        // Updated ffmpeg command with error handling for input files
-        const mixed = await new Promise((resolve, reject) => {
-            const command = ffmpeg()
-                .input('speech.mp3')
-                .input(musicStream)
-                .complexFilter([
-                    '[0:a]volume=0.4[a0]',
-                    '[1:a]volume=1.2[a1]',
-                    '[a0][a1]amix=inputs=2:duration=first[out]'
-                ], ['out'])
-                .on('start', (commandLine) => {
-                    console.log('FFmpeg command:', commandLine);
-                })
-                .on('end', () => {
-                    // Read the output file and convert to base64
-                    const mixedBuffer = fs.readFileSync('output.mp3');
-                    const mixedBase64 = mixedBuffer.toString('base64');
-                    // Clean up temporary files
-                    fs.unlinkSync('speech.mp3');
-                    fs.unlinkSync('output.mp3');
-                    resolve(mixedBase64);
-                })
-                .on('error', (err) => {
-                    console.error('FFmpeg error:', err);
-                    // Clean up temporary file if it exists
-                    if (fs.existsSync('speech.mp3')) {
-                        fs.unlinkSync('speech.mp3');
-                    }
-                    reject(err);
-                })
-                .save('output.mp3');
-        });
-
-        streamService.buffer(responseIndex, mixed);
-      } catch (error) {
-        console.error('Error mixing audio:', error);
-      }
+    ttsService.on('speech', (responseIndex, audio, label, icount) => {
+      console.log(`Interaction ${icount}: TTS -> TWILIO: ${label}`.blue);
+      streamService.buffer(responseIndex, audio);
     }); 
 
     streamService.on('audiosent', (markLabel) => {
