@@ -122,36 +122,37 @@ app.ws('/connection', (ws) => {
       try {
         console.log(`Interaction ${icount}: TTS -> TWILIO: ${label}`.blue);
         
-        // Create a temporary file for the speech audio
-        const speechFile = `/tmp/speech-${Date.now()}.mp3`;
-        fs.writeFileSync(speechFile, Buffer.from(audioBase64, 'base64'));
+        // Validate base64 data
+        if (!audioBase64 || audioBase64.trim() === '') {
+          throw new Error('Invalid audio data received');
+        }
 
-        // Debug: Check if files exist and their sizes
-        console.log('Speech file exists:', fs.existsSync(speechFile));
-        console.log('Speech file size:', fs.statSync(speechFile).size);
-        console.log('Music file exists:', fs.existsSync(musicStream));
-        console.log('Music file size:', fs.statSync(musicStream).size);
+        // Create a temporary file for the speech audio with proper headers
+        const speechFile = `/tmp/speech-${Date.now()}.raw`;
+        const audioBuffer = Buffer.from(audioBase64, 'base64');
+        fs.writeFileSync(speechFile, audioBuffer);
+
+        console.log('Audio buffer size:', audioBuffer.length);
 
         const mixed = await new Promise((resolve, reject) => {
           ffmpeg()
             .input(speechFile)
-            .inputFormat('mp3')
             .input(musicStream)
-            .inputFormat('mp3')
-            .complexFilter([
-              '[0:a]aformat=sample_fmts=fltp:sample_rates=44100:channel_layouts=stereo,volume=1[a0]',
-              '[1:a]aformat=sample_fmts=fltp:sample_rates=44100:channel_layouts=stereo,volume=0.3[a1]',
-              '[a0][a1]amix=inputs=2:duration=first[out]'
-            ], ['out'])
-            .outputFormat('mp3')
-            .audioCodec('libmp3lame')
-            .audioFrequency(44100)
-            .audioChannels(2)
+            // Simpler mixing approach
+            .outputOptions([
+              '-filter_complex', '[0:a][1:a]amix=inputs=2:duration=first:weights=1,0.3[out]',
+              '-map', '[out]'
+            ])
+            .format('mp3')
             .on('start', (commandLine) => {
               console.log('FFmpeg command:', commandLine);
             })
-            .on('error', (err) => {
+            .on('stderr', (stderrLine) => {
+              console.log('FFmpeg stderr:', stderrLine);
+            })
+            .on('error', (err, stdout, stderr) => {
               console.error('FFmpeg error:', err);
+              console.error('FFmpeg stderr:', stderr);
               reject(err);
             })
             .pipe()
@@ -165,8 +166,9 @@ app.ws('/connection', (ws) => {
 
         streamService.buffer(responseIndex, mixed);
       } catch (error) {
-        console.error('Error mixing audio:', error);
-        // Fallback: Send the original audio without mixing if there's an error
+        console.error('Error details:', error);
+        // Fallback: Send the original audio without mixing
+        console.log('Falling back to original audio');
         const originalAudio = Buffer.from(audioBase64, 'base64');
         streamService.buffer(responseIndex, originalAudio);
       }
