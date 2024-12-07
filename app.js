@@ -122,17 +122,17 @@ app.ws('/connection', (ws) => {
       try {
         console.log(`Interaction ${icount}: TTS -> TWILIO: ${label}`.blue);
         
-        // Create readable streams from the audio data
-        const speechBuffer = Buffer.from(audioBase64, 'base64');
-        
+        // Create a temporary file for the speech audio
+        const speechFile = `/tmp/speech-${Date.now()}.mp3`;
+        fs.writeFileSync(speechFile, Buffer.from(audioBase64, 'base64'));
+
         const mixed = await new Promise((resolve, reject) => {
           ffmpeg()
-            .input(Readable.from(speechBuffer))
-            .inputFormat('mp3')
+            .input(speechFile)
             .input(musicStream)
             .complexFilter([
-              '[0:a]volume=1[a0]',     // Speech volume
-              '[1:a]volume=0.3[a1]',   // Background music volume
+              '[0:a]volume=1[a0]',
+              '[1:a]volume=0.3[a1]',
               '[a0][a1]amix=inputs=2:duration=first[out]'
             ], ['out'])
             .toFormat('mp3')
@@ -146,9 +146,15 @@ app.ws('/connection', (ws) => {
             });
         });
 
+        // Clean up temporary file
+        fs.unlinkSync(speechFile);
+
         streamService.buffer(responseIndex, mixed);
       } catch (error) {
         console.error('Error mixing audio:', error);
+        // Fallback: Send the original audio without mixing if there's an error
+        const originalAudio = Buffer.from(audioBase64, 'base64');
+        streamService.buffer(responseIndex, originalAudio);
       }
     }); 
 
