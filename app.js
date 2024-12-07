@@ -119,48 +119,92 @@ app.ws('/connection', (ws) => {
     ttsService.on('speech', async (responseIndex, audioBase64, label, icount) => {
       try {
         console.log(`Interaction ${icount}: TTS -> TWILIO: ${label}`.blue);
-        if (!fs.existsSync(musicStream)) {
-          console.error(`Background music file not found at: ${musicStream}`);
+        
+        // Validate base64 data
+        if (!audioBase64 || typeof audioBase64 !== 'string') {
+          throw new Error('Invalid audio data received');
         }
-        // Create readable streams from the audio data
+
+        // Create temporary files with absolute paths
+        const timestamp = Date.now();
+        const speechFile = `/tmp/speech_${timestamp}.raw`;
+        const outputFile = `/tmp/output_${timestamp}.mp3`;
         const audioBuffer = Buffer.from(audioBase64, 'base64');
-        fs.writeFileSync('speech.mp3', audioBuffer);
+        
+        // Write the audio file
+        try {
+          fs.writeFileSync(speechFile, audioBuffer);
+          console.log('Successfully wrote speech file:', speechFile);
+        } catch (err) {
+          console.error('Error writing speech file:', err);
+          throw err;
+        }
+        
+        // Debug logging
+        console.log('Audio buffer size:', audioBuffer.length);
+        console.log('Speech file exists:', fs.existsSync(speechFile));
+        console.log('Speech file size:', fs.statSync(speechFile).size);
+        console.log('Background music exists:', fs.existsSync(musicStream));
 
         const mixed = await new Promise((resolve, reject) => {
-          const command = ffmpeg()
-              .input('speech.mp3')
-              .input(musicStream)
-              .complexFilter([
-                  '[0:a]volume=0.4[a0]',
-                  '[1:a]volume=1.2[a1]',
-                  '[a0][a1]amix=inputs=2:duration=first[out]'
-              ], ['out'])
-              .on('start', (commandLine) => {
-                  console.log('FFmpeg command:', commandLine);
-              })
-              .on('end', () => {
-                  // Read the output file and convert to base64
-                  const mixedBuffer = fs.readFileSync('output.mp3');
-                  const mixedBase64 = mixedBuffer.toString('base64');
-                  // Clean up temporary files
-                  fs.unlinkSync('speech.mp3');
-                  fs.unlinkSync('output.mp3');
-                  resolve(mixedBase64);
-              })
-              .on('error', (err) => {
-                  console.error('FFmpeg error:', err);
-                  // Clean up temporary file if it exists
-                  if (fs.existsSync('speech.mp3')) {
-                      fs.unlinkSync('speech.mp3');
-                  }
-                  reject(err);
-              })
-              .save('output.mp3');
-      });
+          let command = ffmpeg()
+            .input(speechFile)
+            .inputOptions([
+              '-f', 's16le',      // Force input format as raw PCM
+              '-ar', '24000',     // Sample rate
+              '-ac', '1'          // Mono audio
+            ])
+            .input(musicStream)
+            .outputOptions([
+              '-filter_complex', '[0:a]aformat=sample_fmts=s16:sample_rates=24000:channel_layouts=stereo,volume=1[a0];[1:a]volume=0.3[a1];[a0][a1]amix=inputs=2:duration=first',
+              '-acodec', 'libmp3lame',
+              '-b:a', '128k'
+            ])
+            .save(outputFile);
+
+          // Add event listeners
+          command
+            .on('start', (commandLine) => {
+              console.log('FFmpeg command:', commandLine);
+            })
+            .on('stderr', (stderrLine) => {
+              console.log('FFmpeg stderr:', stderrLine);
+            })
+            .on('error', (err, stdout, stderr) => {
+              console.error('FFmpeg error:', err);
+              console.error('FFmpeg stderr:', stderr);
+              // Clean up files on error
+              try {
+                if (fs.existsSync(speechFile)) fs.unlinkSync(speechFile);
+                if (fs.existsSync(outputFile)) fs.unlinkSync(outputFile);
+              } catch (cleanupErr) {
+                console.error('Cleanup error:', cleanupErr);
+              }
+              reject(err);
+            })
+            .on('end', () => {
+              try {
+                // Read the output file
+                const outputBuffer = fs.readFileSync(outputFile);
+                
+                // Clean up files
+                fs.unlinkSync(speechFile);
+                fs.unlinkSync(outputFile);
+                
+                resolve(outputBuffer);
+              } catch (err) {
+                reject(err);
+              }
+            });
+        });
 
         streamService.buffer(responseIndex, mixed);
       } catch (error) {
-        console.error('Error mixing audio:', error);
+        console.error('Error details:', error);
+        // Fallback: Send the original audio without mixing
+        console.log('Falling back to original audio');
+        const originalAudio = Buffer.from(audioBase64, 'base64');
+        streamService.buffer(responseIndex, originalAudio);
       }
     });
 
