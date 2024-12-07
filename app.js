@@ -14,7 +14,9 @@ const { BackgroundAudioService } = require('./services/background-audio-service'
 
 const VoiceResponse = require('twilio').twiml.VoiceResponse;
 
+const ffmpegPath = require('@ffmpeg-installer/ffmpeg').path;
 const ffmpeg = require('fluent-ffmpeg');
+ffmpeg.setFfmpegPath(ffmpegPath);
 const fs = require('fs');
 const musicStream = './assets/background.mp3'; // Adjust path as needed
 
