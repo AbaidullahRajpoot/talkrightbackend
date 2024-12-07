@@ -28,8 +28,6 @@ app.post('/incoming', (req, res) => {
 
     res.type('text/xml');
     res.end(response.toString());
-
-    console.log('response',response);
     
   } catch (err) {
     console.log(err);
