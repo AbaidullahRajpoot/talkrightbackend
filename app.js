@@ -4,7 +4,6 @@ require('colors');
 const express = require('express');
 const ExpressWs = require('express-ws');
 const { Readable } = require('stream');
-const path = require('path');
 
 const { GptService } = require('./services/gpt-service');
 const { StreamService } = require('./services/stream-service');
@@ -17,8 +16,7 @@ const VoiceResponse = require('twilio').twiml.VoiceResponse;
 
 const ffmpeg = require('fluent-ffmpeg');
 const fs = require('fs');
-
-const musicStream = path.join(__dirname, './assets/background.mp3');
+const musicStream = './assets/background.mp3'; // Adjust path as needed
 
 const app = express();
 ExpressWs(app);
@@ -35,8 +33,8 @@ app.post('/incoming', (req, res) => {
     res.type('text/xml');
     res.end(response.toString());
 
-    console.log('response', response);
-
+    console.log('response',response);
+    
   } catch (err) {
     console.log(err);
   }
@@ -109,7 +107,7 @@ app.ws('/connection', (ws) => {
       console.log(`Interaction ${interactionCount} – STT -> GPT: ${text}`.yellow);
       gptService.completion(text, interactionCount);
       interactionCount += 1;
-    });
+    }); 
 
     gptService.on('gptreply', async (gptReply, icount) => {
       console.log(`Interaction ${icount}: GPT -> TTS: ${gptReply.partialResponse}`.green);
@@ -122,101 +120,50 @@ app.ws('/connection', (ws) => {
       try {
         console.log(`Interaction ${icount}: TTS -> TWILIO: ${label}`.blue);
         
-        // Create temporary files with absolute paths
-        const timestamp = Date.now();
-        const speechFile = `/tmp/speech_${timestamp}.raw`;
-        const outputFile = `/tmp/output_${timestamp}.raw`;
+        // Convert base64 to buffer
         const audioBuffer = Buffer.from(audioBase64, 'base64');
+            
+        // Create a temporary file for the speech audio
+        fs.writeFileSync('speech.mp3', audioBuffer);
         
-        // Write the audio file
-        try {
-          fs.writeFileSync(speechFile, audioBuffer);
-          console.log('Successfully wrote speech file:', speechFile);
-        } catch (err) {
-          console.error('Error writing speech file:', err);
-          throw err;
-        }
-        
-        // Debug logging
-        console.log('Audio buffer size:', audioBuffer.length);
-        console.log('Speech file exists:', fs.existsSync(speechFile));
-        console.log('Speech file size:', fs.statSync(speechFile).size);
-        console.log('Music file exists:', fs.existsSync(musicStream));
-
+        // Updated ffmpeg command with error handling for input files
         const mixed = await new Promise((resolve, reject) => {
-          let command = ffmpeg()
-            .input(speechFile)
-            .inputFormat('s16le')
-            .inputOptions([
-              '-ar', '24000',
-              '-ac', '1'
-            ])
-            .input(musicStream)
-            .complexFilter([
-              {
-                filter: 'volume',
-                options: { volume: 1 },
-                inputs: '0:a',
-                outputs: 'speech'
-              },
-              {
-                filter: 'volume',
-                options: { volume: 0.3 },
-                inputs: '1:a',
-                outputs: 'music'
-              },
-              {
-                filter: 'amix',
-                options: { inputs: 2 },
-                inputs: ['speech', 'music'],
-                outputs: 'output'
-              }
-            ])
-            .outputOptions([
-              '-map', '[output]',
-              '-f', 's16le',
-              '-ar', '24000',
-              '-ac', '1'
-            ])
-            .on('start', (commandLine) => {
-              console.log('FFmpeg command:', commandLine);
-            })
-            .on('stderr', (stderrLine) => {
-              console.log('FFmpeg stderr:', stderrLine);
-            })
-            .on('error', (err, stdout, stderr) => {
-              console.error('FFmpeg error:', err);
-              console.error('FFmpeg stderr:', stderr);
-              reject(err);
-            })
-            .on('end', () => {
-              try {
-                // Read the output file
-                const outputBuffer = fs.readFileSync(outputFile);
-                resolve(outputBuffer.toString('base64'));
-              } catch (err) {
-                reject(err);
-              } finally {
-                // Clean up files
-                try {
-                  fs.unlinkSync(speechFile);
-                  fs.unlinkSync(outputFile);
-                } catch (cleanupErr) {
-                  console.error('Cleanup error:', cleanupErr);
-                }
-              }
-            })
-            .save(outputFile);
+            const command = ffmpeg()
+                .input('speech.mp3')
+                .input(musicStream)
+                .complexFilter([
+                    '[0:a]volume=0.4[a0]',
+                    '[1:a]volume=1.2[a1]',
+                    '[a0][a1]amix=inputs=2:duration=first[out]'
+                ], ['out'])
+                .on('start', (commandLine) => {
+                    console.log('FFmpeg command:', commandLine);
+                })
+                .on('end', () => {
+                    // Read the output file and convert to base64
+                    const mixedBuffer = fs.readFileSync('output.mp3');
+                    const mixedBase64 = mixedBuffer.toString('base64');
+                    // Clean up temporary files
+                    fs.unlinkSync('speech.mp3');
+                    fs.unlinkSync('output.mp3');
+                    resolve(mixedBase64);
+                })
+                .on('error', (err) => {
+                    console.error('FFmpeg error:', err);
+                    // Clean up temporary file if it exists
+                    if (fs.existsSync('speech.mp3')) {
+                        fs.unlinkSync('speech.mp3');
+                    }
+                    reject(err);
+                })
+                .save('output.mp3');
         });
 
         streamService.buffer(responseIndex, mixed);
       } catch (error) {
-        console.error('Error details:', error);
-        // Fallback: Send the original audio without mixing
-        console.log('Falling back to original audio');
-        streamService.buffer(responseIndex, audioBase64);
+        console.error('Error mixing audio:', error);
       }
-    });
+    }); 
 
     streamService.on('audiosent', (markLabel) => {
       marks.push(markLabel);
