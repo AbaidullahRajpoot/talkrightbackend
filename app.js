@@ -136,6 +136,9 @@ app.ws('/connection', (ws) => {
         if (!fs.existsSync(speechFilePath)) {
           throw new Error('Speech file was not created successfully.');
         }
+        else{
+          console.log('Speech file created successfully.');
+        }
 
         // Define the path for the music file
         const musicFilePath = path.join(__dirname, './assets/background.mp3');
