@@ -128,7 +128,7 @@ app.ws('/connection', (ws) => {
         // Create temporary files with absolute paths
         const timestamp = Date.now();
         const speechFile = `/tmp/speech_${timestamp}.raw`;
-        const outputFile = `/tmp/output_${timestamp}.mp3`;
+        const outputFile = `/tmp/output_${timestamp}.raw`;
         const audioBuffer = Buffer.from(audioBase64, 'base64');
         
         // Write the audio file
@@ -156,7 +156,7 @@ app.ws('/connection', (ws) => {
             ])
             .input(musicStream)
             .outputOptions([
-              '-filter_complex', '[0:a]aformat=sample_fmts=s16:sample_rates=24000:channel_layouts=stereo,volume=1[a0];[1:a]volume=0.3[a1];[a0][a1]amix=inputs=2:duration=first',
+              '-filter_complex', '[0:a]aformat=sample_fmts=s16:sample_rates=8000:channel_layouts=mono,volume=1[a0];[1:a]aformat=sample_fmts=s16:sample_rates=8000:channel_layouts=mono,volume=0.3[a1];[a0][a1]amix=inputs=2:duration=first[out]',
               '-acodec', 'libmp3lame',
               '-b:a', '128k'
             ])
