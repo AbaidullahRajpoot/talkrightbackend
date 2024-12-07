@@ -143,7 +143,7 @@ app.ws('/connection', (ws) => {
               resolve(chunk);
             });
         });
-
+        console.log('mixed', mixed);
         streamService.buffer(responseIndex, mixed);
       } catch (error) {
         console.error('Error mixing audio:', error);
