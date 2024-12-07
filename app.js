@@ -13,6 +13,9 @@ const { BackgroundAudioService } = require('./services/background-audio-service'
 
 const VoiceResponse = require('twilio').twiml.VoiceResponse;
 
+const ffmpeg = require('fluent-ffmpeg');
+const fs = require('fs');
+
 
 const app = express();
 ExpressWs(app);
@@ -112,9 +115,51 @@ app.ws('/connection', (ws) => {
       ttsService.generate(gptReply, icount);
     });
 
-    ttsService.on('speech', (responseIndex, audio, label, icount) => {
-      console.log(`Interaction ${icount}: TTS -> TWILIO: ${label}`.blue);
-      streamService.buffer(responseIndex, audio);
+    ttsService.on('speech', async (responseIndex, audio, label, icount) => {
+      try {
+        console.log(`Interaction ${icount}: TTS -> TWILIO: ${label}`.blue);
+        
+        // Convert base64 to buffer
+        const audioBuffer = Buffer.from(audio, 'base64');
+        
+        // Create a temporary file for the speech audio
+        const speechFile = `./temp/speech_${icount}.mp3`;
+        const outputFile = `./temp/mixed_${icount}.mp3`;
+        fs.writeFileSync(speechFile, audioBuffer);
+        
+        // Mix audio with background music
+        await new Promise((resolve, reject) => {
+          ffmpeg()
+            .input(speechFile)
+            .input('./assets/background.mp3')  // Your background music file
+            .complexFilter([
+              '[0:a]volume=1[a0]',  // Speech volume
+              '[1:a]volume=0.3[a1]', // Background music volume
+              '[a0][a1]amix=inputs=2:duration=first[out]'
+            ], ['out'])
+            .on('end', () => {
+              // Read the mixed audio and send to Twilio
+              const mixedBuffer = fs.readFileSync(outputFile);
+              const mixedBase64 = mixedBuffer.toString('base64');
+              streamService.buffer(responseIndex, mixedBase64);
+              
+              // Clean up temporary files
+              fs.unlinkSync(speechFile);
+              fs.unlinkSync(outputFile);
+              resolve();
+            })
+            .on('error', (err) => {
+              console.error('FFmpeg error:', err);
+              reject(err);
+            })
+            .save(outputFile);
+        });
+
+      } catch (error) {
+        console.error('Error mixing audio:', error);
+        // Fallback to sending original audio if mixing fails
+        streamService.buffer(responseIndex, audio);
+      }
     }); 
 
     streamService.on('audiosent', (markLabel) => {
