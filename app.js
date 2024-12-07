@@ -126,16 +126,30 @@ app.ws('/connection', (ws) => {
         const speechFile = `/tmp/speech-${Date.now()}.mp3`;
         fs.writeFileSync(speechFile, Buffer.from(audioBase64, 'base64'));
 
+        // Debug: Check if files exist and their sizes
+        console.log('Speech file exists:', fs.existsSync(speechFile));
+        console.log('Speech file size:', fs.statSync(speechFile).size);
+        console.log('Music file exists:', fs.existsSync(musicStream));
+        console.log('Music file size:', fs.statSync(musicStream).size);
+
         const mixed = await new Promise((resolve, reject) => {
           ffmpeg()
             .input(speechFile)
+            .inputFormat('mp3')
             .input(musicStream)
+            .inputFormat('mp3')
             .complexFilter([
-              '[0:a]volume=1[a0]',
-              '[1:a]volume=0.3[a1]',
+              '[0:a]aformat=sample_fmts=fltp:sample_rates=44100:channel_layouts=stereo,volume=1[a0]',
+              '[1:a]aformat=sample_fmts=fltp:sample_rates=44100:channel_layouts=stereo,volume=0.3[a1]',
               '[a0][a1]amix=inputs=2:duration=first[out]'
             ], ['out'])
-            .toFormat('mp3')
+            .outputFormat('mp3')
+            .audioCodec('libmp3lame')
+            .audioFrequency(44100)
+            .audioChannels(2)
+            .on('start', (commandLine) => {
+              console.log('FFmpeg command:', commandLine);
+            })
             .on('error', (err) => {
               console.error('FFmpeg error:', err);
               reject(err);
