@@ -15,8 +15,7 @@ const VoiceResponse = require('twilio').twiml.VoiceResponse;
 
 const ffmpeg = require('fluent-ffmpeg');
 const fs = require('fs');
-const { Readable } = require('stream');
-
+const musicStream = './assets/background.mp3'; // Adjust path as needed
 
 const app = express();
 ExpressWs(app);
@@ -116,25 +115,18 @@ app.ws('/connection', (ws) => {
       ttsService.generate(gptReply, icount);
     });
 
-    ttsService.on('speech', async (responseIndex, audio, label, icount) => {
+    ttsService.on('speech', async (responseIndex, audioBase64, label, icount) => {
       try {
         console.log(`Interaction ${icount}: TTS -> TWILIO: ${label}`.blue);
         
-        // Convert base64 to buffer
-        const audioBuffer = Buffer.from(audio, 'base64');
+        // Create readable streams from the audio data
+        const speechBuffer = Buffer.from(audioBase64, 'base64');
         
-        // Create readable streams from buffers
-        const speechStream = new Readable();
-        speechStream.push(audioBuffer);
-        speechStream.push(null);
-
-        const backgroundStream = fs.createReadStream('./public/background.mp3');
-
-        // Mix audio with background music using stream
-        await new Promise((resolve, reject) => {
-          const command = ffmpeg()
-            .input(speechStream)
-            .input(backgroundStream)
+        const mixed = await new Promise((resolve, reject) => {
+          ffmpeg()
+            .input(Readable.from(speechBuffer))
+            .inputFormat('mp3')
+            .input(musicStream)
             .complexFilter([
               '[0:a]volume=1[a0]',     // Speech volume
               '[1:a]volume=0.3[a1]',   // Background music volume
@@ -144,24 +136,16 @@ app.ws('/connection', (ws) => {
             .on('error', (err) => {
               console.error('FFmpeg error:', err);
               reject(err);
-            });
-
-          // Capture output directly as buffer
-          const chunks = [];
-          command.pipe()
-            .on('data', chunk => chunks.push(chunk))
-            .on('end', () => {
-              const mixedBuffer = Buffer.concat(chunks);
-              const mixedBase64 = mixedBuffer.toString('base64');
-              streamService.buffer(responseIndex, mixedBase64);
-              resolve();
+            })
+            .pipe()
+            .on('data', (chunk) => {
+              resolve(chunk);
             });
         });
 
+        streamService.buffer(responseIndex, mixed);
       } catch (error) {
         console.error('Error mixing audio:', error);
-        // Fallback to sending original audio if mixing fails
-        streamService.buffer(responseIndex, audio);
       }
     }); 
 
