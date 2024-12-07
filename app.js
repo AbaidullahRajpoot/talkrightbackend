@@ -3,7 +3,6 @@ require('colors');
 
 const express = require('express');
 const ExpressWs = require('express-ws');
-const { Readable } = require('stream');
 
 const { GptService } = require('./services/gpt-service');
 const { StreamService } = require('./services/stream-service');
@@ -14,11 +13,9 @@ const { BackgroundAudioService } = require('./services/background-audio-service'
 
 const VoiceResponse = require('twilio').twiml.VoiceResponse;
 
-const ffmpegPath = require('@ffmpeg-installer/ffmpeg').path;
 const ffmpeg = require('fluent-ffmpeg');
-ffmpeg.setFfmpegPath(ffmpegPath);
 const fs = require('fs');
-const musicStream = './assets/background.mp3'; // Adjust path as needed
+const musicStream = './public/background.mp3'; // Adjust path as needed
 
 const app = express();
 ExpressWs(app);
@@ -122,34 +119,22 @@ app.ws('/connection', (ws) => {
       try {
         console.log(`Interaction ${icount}: TTS -> TWILIO: ${label}`.blue);
         
-        // Create a temporary file for the speech audio
-        const speechFile = `/tmp/speech-${Date.now()}.mp3`;
-        const audioBuffer = Buffer.from(audioBase64, 'base64');
-        fs.writeFileSync(speechFile, audioBuffer);
-
-        console.log('Audio buffer size:', audioBuffer.length);
-
+        // Create readable streams from the audio data
+        const speechBuffer = Buffer.from(audioBase64, 'base64');
+        
         const mixed = await new Promise((resolve, reject) => {
           ffmpeg()
-            .input(speechFile)
-            .inputOptions(['-f mp3'])  // Explicitly set input format
+            .input(Readable.from(speechBuffer))
+            .inputFormat('mp3')
             .input(musicStream)
-            .outputOptions([
-              '-filter_complex', '[0:a]volume=1[v0];[1:a]volume=0.3[v1];[v0][v1]amix=inputs=2:duration=first[out]',
-              '-map', '[out]'
-            ])
-            .audioFrequency(24000)
-            .audioChannels(2)
-            .format('mp3')
-            .on('start', (commandLine) => {
-              console.log('FFmpeg command:', commandLine);
-            })
-            .on('stderr', (stderrLine) => {
-              console.log('FFmpeg stderr:', stderrLine);
-            })
-            .on('error', (err, stdout, stderr) => {
+            .complexFilter([
+              '[0:a]volume=1[a0]',     // Speech volume
+              '[1:a]volume=0.3[a1]',   // Background music volume
+              '[a0][a1]amix=inputs=2:duration=first[out]'
+            ], ['out'])
+            .toFormat('mp3')
+            .on('error', (err) => {
               console.error('FFmpeg error:', err);
-              console.error('FFmpeg stderr:', stderr);
               reject(err);
             })
             .pipe()
@@ -158,16 +143,9 @@ app.ws('/connection', (ws) => {
             });
         });
 
-        // Clean up temporary file
-        fs.unlinkSync(speechFile);
-
         streamService.buffer(responseIndex, mixed);
       } catch (error) {
-        console.error('Error details:', error);
-        // Fallback: Send the original audio without mixing
-        console.log('Falling back to original audio');
-        const originalAudio = Buffer.from(audioBase64, 'base64');
-        streamService.buffer(responseIndex, originalAudio);
+        console.error('Error mixing audio:', error);
       }
     }); 
 
