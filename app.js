@@ -122,10 +122,17 @@ app.ws('/connection', (ws) => {
         
         // Create readable streams from the audio data
         const speechBuffer = Buffer.from(audioBase64, 'base64');
+        const speechStream = Readable.from(speechBuffer);
         
+        // Ensure musicStream is a valid readable stream
+        if (!musicStream || !musicStream.readable) {
+          throw new Error('Invalid music stream');
+        }
+    
         const mixed = await new Promise((resolve, reject) => {
-          ffmpeg()
-            .input(Readable.from(speechBuffer))
+          const outputChunks = [];
+          const ffmpegCommand = ffmpeg()
+            .input(speechStream)
             .inputFormat('mp3')
             .input(musicStream)
             .complexFilter([
@@ -138,17 +145,22 @@ app.ws('/connection', (ws) => {
               console.error('FFmpeg error:', err);
               reject(err);
             })
-            .pipe()
-            .on('data', (chunk) => {
-              resolve(chunk);
+            .on('end', () => {
+              resolve(Buffer.concat(outputChunks));
             });
+    
+          const ffmpegOutputStream = ffmpegCommand.pipe();
+          ffmpegOutputStream.on('data', (chunk) => {
+            outputChunks.push(chunk);
+          });
         });
+    
         console.log('mixed', mixed);
         streamService.buffer(responseIndex, mixed);
       } catch (error) {
         console.error('Error mixing audio:', error);
       }
-    }); 
+    });
 
     streamService.on('audiosent', (markLabel) => {
       marks.push(markLabel);
