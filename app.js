@@ -115,7 +115,7 @@ app.ws('/connection', (ws) => {
     ttsService.on('speech', (responseIndex, audio, label, icount) => {
       console.log(`Interaction ${icount}: TTS -> TWILIO: ${label}`.blue);
       streamService.buffer(responseIndex, audio);
-    });
+    }); 
 
     streamService.on('audiosent', (markLabel) => {
       marks.push(markLabel);
