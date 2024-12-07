@@ -18,7 +18,7 @@ const VoiceResponse = require('twilio').twiml.VoiceResponse;
 const ffmpeg = require('fluent-ffmpeg');
 const fs = require('fs');
 
-const musicFilePath = path.join(__dirname, './assets/background.mp3');
+const musicStream = path.join(__dirname, './assets/background.mp3');
 
 const app = express();
 ExpressWs(app);
@@ -121,76 +121,84 @@ app.ws('/connection', (ws) => {
     ttsService.on('speech', async (responseIndex, audioBase64, label, icount) => {
       try {
         console.log(`Interaction ${icount}: TTS -> TWILIO: ${label}`.blue);
-    
-        // Define the directory for speech file
-        const speechDir = path.join(__dirname, './assets/');
-        if (!fs.existsSync(speechDir)) {
-          fs.mkdirSync(speechDir);
-        }
-    
-        // Create a temporary file for the speech audio
-        const speechFilePath = path.join(speechDir, 'speech.mp3');
+        
+        // Create temporary files with absolute paths
+        const timestamp = Date.now();
+        const speechFile = path.join(__dirname, `./temp/speech_${timestamp}.mp3`);
+        const outputFile = path.join(__dirname, `./temp/output_${timestamp}.mp3`);
         const audioBuffer = Buffer.from(audioBase64, 'base64');
         
-        fs.writeFileSync(speechFilePath, audioBuffer);
-    
-        // Check if the file was created successfully
-        if (!fs.existsSync(speechFilePath)) {
-          throw new Error('Speech file was not created successfully.');
-        } else {
-          console.log('Speech file created successfully.');
+        // Ensure temp directory exists
+        const tempDir = path.join(__dirname, './temp');
+        if (!fs.existsSync(tempDir)) {
+          fs.mkdirSync(tempDir, { recursive: true });
         }
-    
-        // Define the path for the music file
-        const musicFilePath = path.join(__dirname, './assets/background.mp3');
-    
-        // Check if the music file exists
-        if (!fs.existsSync(musicFilePath)) {
-          throw new Error('Music file does not exist.');
+        
+        // Write the audio file
+        try {
+          fs.writeFileSync(speechFile, audioBuffer);
+          console.log('Successfully wrote speech file:', speechFile);
+        } catch (err) {
+          console.error('Error writing speech file:', err);
+          throw err;
         }
-    
-        // Updated ffmpeg command with error handling for input files
+        
+        // Debug logging
+        console.log('Audio buffer size:', audioBuffer.length);
+        console.log('Speech file exists:', fs.existsSync(speechFile));
+        console.log('Speech file size:', fs.statSync(speechFile).size);
+        console.log('Music file path:', musicStream);
+        console.log('Music file exists:', fs.existsSync(musicStream));
+
         const mixed = await new Promise((resolve, reject) => {
-          const command = ffmpeg()
-            .input(speechFilePath)
-            .input(musicFilePath)
-            .complexFilter([
-              '[0:a]volume=0.4[a0]',
-              '[1:a]volume=1.2[a1]',
-              '[a0][a1]amix=inputs=2:duration=first[out]'
-            ], ['out'])
+          let command = ffmpeg()
+            .input(speechFile)
+            .input(musicStream)
+            .outputOptions([
+              '-filter_complex', '[0:a]volume=1[a0];[1:a]volume=0.3[a1];[a0][a1]amix=inputs=2:duration=first[out]',
+              '-map', '[out]',
+              '-acodec', 'libmp3lame',
+              '-b:a', '128k',
+              '-ar', '24000',
+              '-ac', '2'
+            ])
             .on('start', (commandLine) => {
               console.log('FFmpeg command:', commandLine);
             })
-            .on('end', () => {
-              try {
-                // Read the output file and convert to base64
-                const outputFilePath = path.resolve('output.mp3');
-                const mixedBuffer = fs.readFileSync(outputFilePath);
-                const mixedBase64 = mixedBuffer.toString('base64');
-    
-                // Clean up temporary files
-                fs.unlinkSync(speechFilePath);
-                fs.unlinkSync(outputFilePath);
-                resolve(mixedBase64);
-              } catch (readError) {
-                reject(readError);
-              }
+            .on('stderr', (stderrLine) => {
+              console.log('FFmpeg stderr:', stderrLine);
             })
-            .on('error', (err) => {
+            .on('error', (err, stdout, stderr) => {
               console.error('FFmpeg error:', err);
-              // Clean up temporary file if it exists
-              if (fs.existsSync(speechFilePath)) {
-                fs.unlinkSync(speechFilePath);
-              }
+              console.error('FFmpeg stderr:', stderr);
               reject(err);
             })
-            .save(path.resolve('output.mp3'));
+            .on('end', () => {
+              try {
+                // Read the output file
+                const outputBuffer = fs.readFileSync(outputFile);
+                resolve(outputBuffer.toString('base64'));
+              } catch (err) {
+                reject(err);
+              } finally {
+                // Clean up files
+                try {
+                  fs.unlinkSync(speechFile);
+                  fs.unlinkSync(outputFile);
+                } catch (cleanupErr) {
+                  console.error('Cleanup error:', cleanupErr);
+                }
+              }
+            })
+            .save(outputFile);
         });
-    
+
         streamService.buffer(responseIndex, mixed);
       } catch (error) {
-        console.error('Error mixing audio:', error);
+        console.error('Error details:', error);
+        // Fallback: Send the original audio without mixing
+        console.log('Falling back to original audio');
+        streamService.buffer(responseIndex, audioBase64);
       }
     });
 
