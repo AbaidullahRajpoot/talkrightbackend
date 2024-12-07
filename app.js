@@ -122,13 +122,8 @@ app.ws('/connection', (ws) => {
       try {
         console.log(`Interaction ${icount}: TTS -> TWILIO: ${label}`.blue);
         
-        // Validate base64 data
-        if (!audioBase64 || audioBase64.trim() === '') {
-          throw new Error('Invalid audio data received');
-        }
-
-        // Create a temporary file for the speech audio with proper headers
-        const speechFile = `/tmp/speech-${Date.now()}.raw`;
+        // Create a temporary file for the speech audio
+        const speechFile = `/tmp/speech-${Date.now()}.mp3`;
         const audioBuffer = Buffer.from(audioBase64, 'base64');
         fs.writeFileSync(speechFile, audioBuffer);
 
@@ -137,12 +132,14 @@ app.ws('/connection', (ws) => {
         const mixed = await new Promise((resolve, reject) => {
           ffmpeg()
             .input(speechFile)
+            .inputOptions(['-f mp3'])  // Explicitly set input format
             .input(musicStream)
-            // Simpler mixing approach
             .outputOptions([
-              '-filter_complex', '[0:a][1:a]amix=inputs=2:duration=first:weights=1,0.3[out]',
+              '-filter_complex', '[0:a]volume=1[v0];[1:a]volume=0.3[v1];[v0][v1]amix=inputs=2:duration=first[out]',
               '-map', '[out]'
             ])
+            .audioFrequency(24000)
+            .audioChannels(2)
             .format('mp3')
             .on('start', (commandLine) => {
               console.log('FFmpeg command:', commandLine);
