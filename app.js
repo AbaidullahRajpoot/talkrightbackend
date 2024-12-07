@@ -19,7 +19,6 @@ const ffmpeg = require('fluent-ffmpeg');
 const fs = require('fs');
 
 const musicFilePath = path.join(__dirname, './assets/background.mp3');
-const musicBuffer = fs.readFileSync(musicFilePath);
 
 const app = express();
 ExpressWs(app);
@@ -122,16 +121,23 @@ app.ws('/connection', (ws) => {
     ttsService.on('speech', async (responseIndex, audioBase64, label, icount) => {
       try {
         console.log(`Interaction ${icount}: TTS -> TWILIO: ${label}`.blue);
+    
         // Convert base64 to buffer
         const audioBuffer = Buffer.from(audioBase64, 'base64');
-
+    
         // Create a temporary file for the speech audio
-        fs.writeFileSync('speech.mp3', audioBuffer);
-
+        const speechFilePath = path.resolve('speech.mp3');
+        fs.writeFileSync(speechFilePath, audioBuffer);
+    
+        // Check if the file was created successfully
+        if (!fs.existsSync(speechFilePath)) {
+          throw new Error('Speech file was not created successfully.');
+        }
+    
         // Updated ffmpeg command with error handling for input files
         const mixed = await new Promise((resolve, reject) => {
           const command = ffmpeg()
-            .input('speech.mp3')
+            .input(speechFilePath)
             .input(musicFilePath)
             .complexFilter([
               '[0:a]volume=0.4[a0]',
@@ -142,25 +148,31 @@ app.ws('/connection', (ws) => {
               console.log('FFmpeg command:', commandLine);
             })
             .on('end', () => {
-              // Read the output file and convert to base64
-              const mixedBuffer = fs.readFileSync('output.mp3');
-              const mixedBase64 = mixedBuffer.toString('base64');
-              // Clean up temporary files
-              fs.unlinkSync('speech.mp3');
-              fs.unlinkSync('output.mp3');
-              resolve(mixedBase64);
+              try {
+                // Read the output file and convert to base64
+                const outputFilePath = path.resolve('output.mp3');
+                const mixedBuffer = fs.readFileSync(outputFilePath);
+                const mixedBase64 = mixedBuffer.toString('base64');
+                
+                // Clean up temporary files
+                fs.unlinkSync(speechFilePath);
+                fs.unlinkSync(outputFilePath);
+                resolve(mixedBase64);
+              } catch (readError) {
+                reject(readError);
+              }
             })
             .on('error', (err) => {
               console.error('FFmpeg error:', err);
               // Clean up temporary file if it exists
-              if (fs.existsSync('speech.mp3')) {
-                fs.unlinkSync('speech.mp3');
+              if (fs.existsSync(speechFilePath)) {
+                fs.unlinkSync(speechFilePath);
               }
               reject(err);
             })
-            .save('output.mp3');
+            .save(path.resolve('output.mp3'));
         });
-
+    
         streamService.buffer(responseIndex, mixed);
       } catch (error) {
         console.error('Error mixing audio:', error);
