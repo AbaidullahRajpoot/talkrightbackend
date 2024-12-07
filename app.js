@@ -124,15 +124,9 @@ app.ws('/connection', (ws) => {
         
         // Create temporary files with absolute paths
         const timestamp = Date.now();
-        const speechFile = path.join(__dirname, `./temp/speech_${timestamp}.mp3`);
-        const outputFile = path.join(__dirname, `./temp/output_${timestamp}.mp3`);
+        const speechFile = `/tmp/speech_${timestamp}.raw`;
+        const outputFile = `/tmp/output_${timestamp}.mp3`;
         const audioBuffer = Buffer.from(audioBase64, 'base64');
-        
-        // Ensure temp directory exists
-        const tempDir = path.join(__dirname, './temp');
-        if (!fs.existsSync(tempDir)) {
-          fs.mkdirSync(tempDir, { recursive: true });
-        }
         
         // Write the audio file
         try {
@@ -147,16 +141,50 @@ app.ws('/connection', (ws) => {
         console.log('Audio buffer size:', audioBuffer.length);
         console.log('Speech file exists:', fs.existsSync(speechFile));
         console.log('Speech file size:', fs.statSync(speechFile).size);
-        console.log('Music file path:', musicStream);
         console.log('Music file exists:', fs.existsSync(musicStream));
 
         const mixed = await new Promise((resolve, reject) => {
           let command = ffmpeg()
             .input(speechFile)
+            .inputFormat('s16le')
+            .inputOptions([
+              '-ar', '24000',
+              '-ac', '1',
+              '-f', 'raw'
+            ])
             .input(musicStream)
+            .complexFilter([
+              {
+                filter: 'aformat',
+                options: { 
+                  sample_fmts: 's16',
+                  sample_rates: 24000,
+                  channel_layouts: 'stereo'
+                },
+                inputs: '0:a',
+                outputs: 'formatted'
+              },
+              {
+                filter: 'volume',
+                options: { volume: 1 },
+                inputs: 'formatted',
+                outputs: 'speech'
+              },
+              {
+                filter: 'volume',
+                options: { volume: 0.3 },
+                inputs: '1:a',
+                outputs: 'music'
+              },
+              {
+                filter: 'amix',
+                options: { inputs: 2, duration: 'first' },
+                inputs: ['speech', 'music'],
+                outputs: 'output'
+              }
+            ])
             .outputOptions([
-              '-filter_complex', '[0:a]volume=1[a0];[1:a]volume=0.3[a1];[a0][a1]amix=inputs=2:duration=first[out]',
-              '-map', '[out]',
+              '-map', '[output]',
               '-acodec', 'libmp3lame',
               '-b:a', '128k',
               '-ar', '24000',
