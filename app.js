@@ -19,7 +19,7 @@ const ffmpeg = require('fluent-ffmpeg');
 const fs = require('fs');
 // Assuming musicStream is a file stream
 const musicFilePath = path.join(__dirname, './assets/background.mp3');
-const musicStream = fs.createReadStream(musicFilePath);
+const musicBuffer = fs.readFileSync(musicFilePath);
 
 const app = express();
 ExpressWs(app);
@@ -126,11 +126,7 @@ app.ws('/connection', (ws) => {
         // Create readable streams from the audio data
         const speechBuffer = Buffer.from(audioBase64, 'base64');
         const speechStream = Readable.from(speechBuffer);
-        
-        // Ensure musicStream is a valid readable stream
-        if (!musicStream || !musicStream.readable) {
-          throw new Error('Invalid music stream');
-        }
+        const musicStream = Readable.from(musicBuffer);
     
         const mixed = await new Promise((resolve, reject) => {
           const outputChunks = [];
@@ -138,6 +134,7 @@ app.ws('/connection', (ws) => {
             .input(speechStream)
             .inputFormat('mp3')
             .input(musicStream)
+            .inputFormat('mp3')
             .complexFilter([
               '[0:a]volume=1[a0]',     // Speech volume
               '[1:a]volume=0.3[a1]',   // Background music volume
