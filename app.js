@@ -130,8 +130,9 @@ app.ws('/connection', (ws) => {
     
         // Create a temporary file for the speech audio
         const speechFilePath = path.join(speechDir, 'speech.mp3');
-        const speechBuffer = Buffer.from(audioBase64, 'base64');
-        fs.writeFileSync(speechFilePath, speechBuffer);
+        const audioBuffer = Buffer.from(audioBase64, 'base64');
+        
+        fs.writeFileSync(speechFilePath, audioBuffer);
     
         // Check if the file was created successfully
         if (!fs.existsSync(speechFilePath)) {
