@@ -9,13 +9,12 @@ const { StreamService } = require('./services/stream-service');
 const { TranscriptionService } = require('./services/transcription-service');
 const { TextToSpeechService } = require('./services/tts-service');
 const { recordingService } = require('./services/recording-service');
-const { BackgroundAudioService } = require('./services/background-audio-service');
 
 const VoiceResponse = require('twilio').twiml.VoiceResponse;
 
 const app = express();
 ExpressWs(app);
-  
+
 const PORT = process.env.PORT || 3000;
 
 app.post('/incoming', (req, res) => {
@@ -41,7 +40,6 @@ app.ws('/connection', (ws) => {
     const streamService = new StreamService(ws);
     const transcriptionService = new TranscriptionService();
     const ttsService = new TextToSpeechService({});
-    const backgroundAudioService = new BackgroundAudioService(streamService);
   
     let marks = [];
     let interactionCount = 0;
@@ -111,9 +109,6 @@ app.ws('/connection', (ws) => {
     streamService.on('audiosent', (markLabel) => {
       marks.push(markLabel);
     });
-
-    backgroundAudioService.setVolume(0.01); // Set volume to 15%
-    backgroundAudioService.start();
   } catch (err) {
     console.log(err);
   }
