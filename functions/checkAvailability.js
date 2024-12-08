@@ -133,15 +133,10 @@ async function getAuthClient() {
 
     let serviceAccountKey;
     const rawKey = process.env.GOOGLE_SERVICE_ACCOUNT_KEY;
-    console.log('Raw key:', rawKey);
 
     try {
-      // const trimmedKey = rawKey.trim().replace(/^'(.*)'$/, '$1');
-      // serviceAccountKey = JSON.parse(trimmedKey);
-
       const trimmedKey = rawKey.trim().replace(/^'(.*)'$/, '$1');
       serviceAccountKey = JSON.parse(trimmedKey);
-
       if (serviceAccountKey.private_key) {
         serviceAccountKey.private_key = serviceAccountKey.private_key.replace(/\\n/g, '\n');
       }
