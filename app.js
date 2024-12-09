@@ -35,7 +35,7 @@ app.ws('/connection', (ws) => {
     ws.on('error', console.error);
     let streamSid;
     let callSid;
-
+ 
     const gptService = new GptService();
     const streamService = new StreamService(ws);
     const transcriptionService = new TranscriptionService();
