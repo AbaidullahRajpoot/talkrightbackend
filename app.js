@@ -85,11 +85,11 @@ app.ws('/connection', (ws) => {
       if (msg.event === 'start') {
         streamSid = msg.start.streamSid;
         callSid = msg.start.callSid;
+        const phoneNumber = msg.start.from || '0501575591';
         
         streamService.setStreamSid(streamSid);
         gptService.setCallSid(callSid);
-        // gptService.setCallerPhoneNumber(msg.start.from);
-        gptService.setCallerPhoneNumber('0501575591');
+        gptService.setCallerPhoneNumber(phoneNumber);
     
         // Set RECORDING_ENABLED='true' in .env to record calls
         recordingService(ttsService, callSid).then(() => {
@@ -100,7 +100,7 @@ app.ws('/connection', (ws) => {
           ttsService.generate({ partialResponseIndex: null, partialResponse: `Hi there! I'm Eva from Zuleikha Hospital. How can I help you today?` }, 1);
         }).catch(err => console.error('Error in recordingService:', err));
 
-        callController.trackCallStart(callSid, msg.start.from);
+        callController.trackCallStart(callSid, phoneNumber);
       } else if (msg.event === 'media') {
         if (!isSpeaking) {
           transcriptionService.send(msg.media.payload);
