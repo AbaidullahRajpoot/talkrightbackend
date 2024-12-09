@@ -1,18 +1,15 @@
-const MongoClient = require('mongodb').MongoClient;
 
-function ConnectionDb(Database_URL, callback) {
-    const client = new MongoClient(Database_URL);
-    
-    client.connect()
-        .then(function(client) {
-            const db = client.db("Talkright");
-            console.log("DataBase Connect Successfully........");
-            callback(null, db);
-        })
-        .catch(function(error) {
-            console.error("Something went wrong", error);
-            callback(error, null);
-        });
-}
+const mongoose = require('mongoose');
+
+mongoose.set('strictQuery', false);
+
+const ConnectionDb = async (MONGO_URI) => {
+  try { 
+    await mongoose.connect(MONGO_URI);
+    console.log('mongodb connection success!');
+  } catch (err) {
+    console.log('mongodb connection failed!', err.message);
+  }
+};
 
 module.exports = ConnectionDb;
