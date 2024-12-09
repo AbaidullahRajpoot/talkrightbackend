@@ -9,13 +9,43 @@ const { StreamService } = require('./services/stream-service');
 const { TranscriptionService } = require('./services/transcription-service');
 const { TextToSpeechService } = require('./services/tts-service');
 const { recordingService } = require('./services/recording-service');
+const ConnectionDb = require('./db/connectDb');
+const router = require('./routes/routes');
+const callController = require('./controller/callController');
+
 
 const VoiceResponse = require('twilio').twiml.VoiceResponse;
 
 const app = express();
 ExpressWs(app);
 
+// Middleware
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
 const PORT = process.env.PORT || 3000;
+
+//=============================== Database Connection ===============================
+
+const DATABASE_URL = "mongodb+srv://root:root@harridb.hxmancm.mongodb.net/";
+
+ConnectionDb(DATABASE_URL, (err, db) => {
+  if (err) {
+      console.error('Failed to connect to database:'.red, err);
+      process.exit(1);
+  } else {
+      console.log('Connected to database:'.green, DATABASE_URL);
+  }
+});
+
+//===============================End Database Connection ============================
+
+//=====================================Routes========================================
+
+app.use('/api', router);
+
+//=====================================End Routes====================================
+
 
 app.post('/incoming', (req, res) => {
   try {
@@ -69,6 +99,8 @@ app.ws('/connection', (ws) => {
           transcriptionService.start();  // Start the transcription service
           ttsService.generate({ partialResponseIndex: null, partialResponse: `Hi there! I'm Eva from Zuleikha Hospital. How can I help you today?` }, 1);
         }).catch(err => console.error('Error in recordingService:', err));
+
+        callController.trackCallStart(callSid, msg.start.from);
       } else if (msg.event === 'media') {
         if (!isSpeaking) {
           transcriptionService.send(msg.media.payload);
@@ -84,6 +116,7 @@ app.ws('/connection', (ws) => {
       } else if (msg.event === 'stop') {
         console.log(`Twilio -> Media stream ${streamSid} ended.`.underline.red);
         transcriptionService.stop();  // Stop the transcription service
+        callController.trackCallEnd(callSid);
       }
     });
   
