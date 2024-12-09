@@ -3,6 +3,7 @@ require('colors');
 
 const express = require('express');
 const ExpressWs = require('express-ws');
+const cors = require("cors");
 
 const { GptService } = require('./services/gpt-service');
 const { StreamService } = require('./services/stream-service');
@@ -20,6 +21,7 @@ const app = express();
 ExpressWs(app);
 
 // Middleware
+app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
