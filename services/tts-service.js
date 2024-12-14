@@ -32,7 +32,7 @@ class TextToSpeechService extends EventEmitter {
             model_id: "eleven_turbo_v2_5",
             voice_settings: {
               stability: 0.75,
-              similarity_boost: 1.0
+              similarity_boost: 1.0 
             }
           }),
         }
