@@ -89,7 +89,10 @@ class CalendarController {
                 end: event.end,
                 allDay: event.allDay || false,
                 extendedProps: {
-                    calendar: event.extendedProps.calendar || 'Business'
+                    id: event.id,
+                    calendar: event.extendedProps.calendar,
+                    doctor: event.extendedProps.doctor,
+                    description: event.extendedProps.description,
                 }
             }));
 
