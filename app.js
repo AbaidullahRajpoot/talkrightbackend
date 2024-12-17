@@ -83,7 +83,7 @@ app.ws('/connection', (ws) => {
     let isSpeaking = false;
 
     // Initialize background music
-    backgroundAudioService.setVolume(0.02);
+    backgroundAudioService.setVolume(0.15);
     backgroundAudioService.start();
 
     transcriptionService.on('error', (error) => {
@@ -115,6 +115,7 @@ app.ws('/connection', (ws) => {
         callController.trackCallStart(callSid, phoneNumber);
       } else if (msg.event === 'media') {
         if (!isSpeaking) {
+          backgroundAudioService.adjustVolumeForSpeech(true);
           transcriptionService.send(msg.media.payload);
         }
       } else if (msg.event === 'mark') {

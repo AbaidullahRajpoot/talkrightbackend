@@ -10,8 +10,8 @@ class BackgroundAudioService extends EventEmitter {
     this.isPlaying = false;
     this.audioBuffer = null;
     this.currentPosition = 0;
-    this.chunkSize = 640; // 8kHz ulaw audio chunks
-    this.volume = 0.02; // 2% default volume
+    this.chunkSize = 640;
+    this.volume = 0.15; // Default 15% volume
     this.loadAudioFile();
   }
 
@@ -36,13 +36,11 @@ class BackgroundAudioService extends EventEmitter {
   }
 
   setVolume(volume) {
-    // Volume between 0 and 1
     this.volume = Math.max(0, Math.min(1, volume));
   }
 
   adjustVolumeForSpeech(isSpeaking) {
-    // Lower volume during speech
-    this.setVolume(isSpeaking ? 0.01 : 0.03);
+    this.setVolume(isSpeaking ? 0.08 : 0.15);
   }
 
   streamAudio() {
