@@ -92,7 +92,7 @@ app.ws('/connection', (ws) => {
     const playBackgroundMusic = async () => {
       try {
         console.log('Starting background music playback...'); // Debug log
-        const musicBuffer = fs.readFileSync('./assets/background-music.mp3');
+        const musicBuffer = fs.readFileSync('./assets/background.mp3');
         
         // Initial play
         streamService.buffer(null, musicBuffer, { volume: 0.3 });
