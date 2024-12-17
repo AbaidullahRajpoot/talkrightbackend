@@ -81,85 +81,66 @@ app.ws('/connection', (ws) => {
     ws.on('error', console.error);
     let streamSid;
     let callSid;
-    let isBackgroundMusic = false;
+    let isBackgroundMusic = false; // Flag to identify music stream
 
     const gptService = new GptService();
     const streamService = new StreamService(ws);
     const transcriptionService = new TranscriptionService();
     const ttsService = new TextToSpeechService({});
 
+    // Add background music service
+    const playBackgroundMusic = async () => {
+      try {
+        console.log('Starting background music playback...');
+        const musicBuffer = fs.readFileSync('./assets/background.mp3');
+        
+        // Initial play with lower volume
+        streamService.buffer(null, musicBuffer, { volume: 0.2 }); // Reduced volume to 0.2
+        
+        // Set up continuous loop
+        const playLoop = () => {
+          if (isBackgroundMusic) {
+            console.log('Playing music loop');
+            streamService.buffer(null, musicBuffer, { volume: 0.2 });
+            // Adjust timing based on your music file length (in milliseconds)
+            setTimeout(playLoop, musicDuration); 
+          }
+        };
+
+        playLoop();
+      } catch (err) {
+        console.error('Background music error:', err);
+      }
+    };
+
+    let marks = [];
+    let interactionCount = 0;
+    let isSpeaking = false;
+
+    transcriptionService.on('error', (error) => {
+      console.error('Critical transcription service error:', error);
+      // Handle the error appropriately (e.g., end the call, notify the user)
+    });
+
     ws.on('message', function message(data) {
       const msg = JSON.parse(data);
       if (msg.event === 'start') {
         streamSid = msg.start.streamSid;
         callSid = msg.start.callSid;
-        
-        console.log('WebSocket connection started:', {
-          streamSid,
-          callSid,
-          name: msg.start.name,
-          customParameters: msg.start.customParameters
-        });
+        const phoneNumber = msg.start.from || '0501575591';
 
         streamService.setStreamSid(streamSid);
         
-        // Check if this is a music stream
-        if (msg.start.name === 'music') {  
-          console.log('Initializing music stream...');
+        // Check if this is a music stream or AI stream
+        if (msg.start.streamType === 'music') {
           isBackgroundMusic = true;
-          
-          // Start playing background music
-          const playBackgroundMusic = async () => {
-            try {
-              console.log('Starting background music playback...');
-              let musicBuffer;
-              try {
-                musicBuffer = fs.readFileSync('./assets/background.mp3');
-                console.log('Music file loaded successfully, size:', musicBuffer.length);
-              } catch (err) {
-                console.error('Error loading music file:', err);
-                return;
-              }
-              
-              // Convert the music buffer to base64
-              const base64Audio = musicBuffer.toString('base64');
-              
-              // Send the audio with explicit media format
-              const mediaPayload = {
-                streamSid: streamSid,
-                event: 'media',
-                media: {
-                  payload: base64Audio,
-                  track: 'inbound_track',
-                  chunk: 1,
-                  timestamp: Date.now()
-                }
-              };
-              
-              console.log('Sending first music buffer...');
-              ws.send(JSON.stringify(mediaPayload));
-              
-              // Set up continuous loop
-              const playLoop = () => {
-                if (isBackgroundMusic) {
-                  console.log('Playing music loop');
-                  ws.send(JSON.stringify(mediaPayload));
-                  setTimeout(playLoop, 10000);
-                }
-              };
-
-              playLoop();
-            } catch (err) {
-              console.error('Background music error:', err);
-            }
-          };
-
           playBackgroundMusic();
+          return;
         }
 
         // Regular AI conversation setup
         gptService.setCallSid(callSid);
-        gptService.setCallerPhoneNumber(msg.start.from || '0501575591');
+        gptService.setCallerPhoneNumber(phoneNumber);
 
         recordingService(ttsService, callSid).then(() => {
           console.log(`Twilio -> Starting Media Stream for ${streamSid}`.underline.red);
@@ -167,13 +148,26 @@ app.ws('/connection', (ws) => {
           transcriptionService.pause();
           transcriptionService.start();
           
+          // Create second WebSocket connection for background music
+          const musicWs = new WebSocket(`wss://${process.env.SERVER}/connection`);
+          musicWs.on('open', () => {
+            musicWs.send(JSON.stringify({
+              event: 'start',
+              start: {
+                streamSid: `${streamSid}-music`,
+                callSid: callSid,
+                streamType: 'music'
+              }
+            }));
+          });
+
           ttsService.generate({ 
             partialResponseIndex: null, 
             partialResponse: `Hi there! I'm Eva from Zuleikha Hospital. How can I help you today?` 
           }, 1);
         }).catch(err => console.error('Error in recordingService:', err));
 
-        callController.trackCallStart(callSid, msg.start.from || '0501575591');
+        callController.trackCallStart(callSid, phoneNumber);
       } else if (msg.event === 'media') {
         if (!isSpeaking) {
           transcriptionService.send(msg.media.payload);
