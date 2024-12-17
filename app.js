@@ -92,20 +92,25 @@ app.ws('/connection', (ws) => {
     const playBackgroundMusic = async () => {
       try {
         console.log('Starting background music playback...');
-        const musicBuffer = fs.readFileSync('./assets/background.mp3');
+        let musicBuffer;
+        try {
+          musicBuffer = fs.readFileSync('./assets/background.mp3');
+          console.log('Music file loaded successfully, size:', musicBuffer.length);
+        } catch (err) {
+          console.error('Error loading music file:', err);
+          return;
+        }
         
-        // Set music duration in milliseconds (adjust based on your music file length)
-        const musicDuration = 30000; // Example: 30 seconds
+        // Initial play with slightly higher volume for testing
+        console.log('Sending first music buffer...');
+        streamService.buffer(null, musicBuffer.toString('base64'), { volume: 0.3 }); // Increased volume for testing
         
-        // Initial play with lower volume
-        streamService.buffer(null, musicBuffer, { volume: 0.2 }); // Reduced volume
-        
-        // Set up continuous loop
+        // Set up continuous loop with shorter interval for testing
         const playLoop = () => {
           if (isBackgroundMusic) {
             console.log('Playing music loop');
-            streamService.buffer(null, musicBuffer, { volume: 0.2 });
-            setTimeout(playLoop, musicDuration);
+            streamService.buffer(null, musicBuffer.toString('base64'), { volume: 0.3 });
+            setTimeout(playLoop, 10000); // Shorter interval (10 seconds) for testing
           }
         };
 
