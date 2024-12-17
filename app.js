@@ -94,16 +94,18 @@ app.ws('/connection', (ws) => {
         console.log('Starting background music playback...');
         const musicBuffer = fs.readFileSync('./assets/background.mp3');
         
+        // Set music duration in milliseconds (adjust this value based on your actual music file length)
+        const musicDuration = 30000; // Example: 30 seconds
+        
         // Initial play with lower volume
-        streamService.buffer(null, musicBuffer, { volume: 0.2 }); // Reduced volume to 0.2
+        streamService.buffer(null, musicBuffer, { volume: 0.2 });
         
         // Set up continuous loop
         const playLoop = () => {
           if (isBackgroundMusic) {
             console.log('Playing music loop');
             streamService.buffer(null, musicBuffer, { volume: 0.2 });
-            // Adjust timing based on your music file length (in milliseconds)
-            setTimeout(playLoop, musicDuration); 
+            setTimeout(playLoop, musicDuration);
           }
         };
 
