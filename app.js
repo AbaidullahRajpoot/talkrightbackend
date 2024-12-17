@@ -81,67 +81,12 @@ app.ws('/connection', (ws) => {
     ws.on('error', console.error);
     let streamSid;
     let callSid;
-    let isBackgroundMusic = false; // Flag to identify music stream
+    let isBackgroundMusic = false;
 
     const gptService = new GptService();
     const streamService = new StreamService(ws);
     const transcriptionService = new TranscriptionService();
     const ttsService = new TextToSpeechService({});
-
-    // Add background music service
-    const playBackgroundMusic = async () => {
-      try {
-        console.log('Starting background music playback...');
-        let musicBuffer;
-        try {
-          musicBuffer = fs.readFileSync('./assets/background.mp3');
-          console.log('Music file loaded successfully, size:', musicBuffer.length);
-        } catch (err) {
-          console.error('Error loading music file:', err);
-          return;
-        }
-        
-        // Convert the music buffer to base64
-        const base64Audio = musicBuffer.toString('base64');
-        
-        // Send the audio with explicit media format
-        const mediaPayload = {
-          streamSid: streamSid,
-          event: 'media',
-          media: {
-            payload: base64Audio,
-            track: 'inbound_track',
-            chunk: 1,
-            timestamp: Date.now()
-          }
-        };
-        
-        console.log('Sending first music buffer...');
-        ws.send(JSON.stringify(mediaPayload));
-        
-        // Set up continuous loop
-        const playLoop = () => {
-          if (isBackgroundMusic) {
-            console.log('Playing music loop');
-            ws.send(JSON.stringify(mediaPayload));
-            setTimeout(playLoop, 10000);
-          }
-        };
-
-        playLoop();
-      } catch (err) {
-        console.error('Background music error:', err);
-      }
-    };
-
-    let marks = [];
-    let interactionCount = 0;
-    let isSpeaking = false;
-
-    transcriptionService.on('error', (error) => {
-      console.error('Critical transcription service error:', error);
-      // Handle the error appropriately (e.g., end the call, notify the user)
-    });
 
     ws.on('message', function message(data) {
       const msg = JSON.parse(data);
@@ -152,17 +97,64 @@ app.ws('/connection', (ws) => {
         console.log('WebSocket connection started:', {
           streamSid,
           callSid,
-          streamType: msg.start.streamType || 'main'
+          name: msg.start.name,
+          customParameters: msg.start.customParameters
         });
 
         streamService.setStreamSid(streamSid);
         
         // Check if this is a music stream
-        if (msg.start.name === 'music') {  // Changed from streamType to name
+        if (msg.start.name === 'music') {  
           console.log('Initializing music stream...');
           isBackgroundMusic = true;
+          
+          // Start playing background music
+          const playBackgroundMusic = async () => {
+            try {
+              console.log('Starting background music playback...');
+              let musicBuffer;
+              try {
+                musicBuffer = fs.readFileSync('./assets/background.mp3');
+                console.log('Music file loaded successfully, size:', musicBuffer.length);
+              } catch (err) {
+                console.error('Error loading music file:', err);
+                return;
+              }
+              
+              // Convert the music buffer to base64
+              const base64Audio = musicBuffer.toString('base64');
+              
+              // Send the audio with explicit media format
+              const mediaPayload = {
+                streamSid: streamSid,
+                event: 'media',
+                media: {
+                  payload: base64Audio,
+                  track: 'inbound_track',
+                  chunk: 1,
+                  timestamp: Date.now()
+                }
+              };
+              
+              console.log('Sending first music buffer...');
+              ws.send(JSON.stringify(mediaPayload));
+              
+              // Set up continuous loop
+              const playLoop = () => {
+                if (isBackgroundMusic) {
+                  console.log('Playing music loop');
+                  ws.send(JSON.stringify(mediaPayload));
+                  setTimeout(playLoop, 10000);
+                }
+              };
+
+              playLoop();
+            } catch (err) {
+              console.error('Background music error:', err);
+            }
+          };
+
           playBackgroundMusic();
-          return;
         }
 
         // Regular AI conversation setup
