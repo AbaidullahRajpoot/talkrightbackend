@@ -92,23 +92,24 @@ app.ws('/connection', (ws) => {
     const playBackgroundMusic = async () => {
       try {
         console.log('Starting background music playback...'); // Debug log
-        const musicBuffer = fs.readFileSync('./assets/background.mp3');
+        const toneBuffer = generateSineWaveBuffer(440, 1); // 1-second 440Hz tone
         
         // Initial play
-        streamService.buffer(null, musicBuffer, { volume: 0.3 });
+        streamService.buffer(null, toneBuffer, { volume: 0.1 }); // Reduced volume to 0.1
         
         // Set up continuous loop
         const playLoop = () => {
           if (isBackgroundMusic) {
             console.log('Playing music loop'); // Debug log
-            streamService.buffer(null, musicBuffer, { volume: 0.3 });
-            setTimeout(playLoop, 5000); // Adjust timing based on your music length
+            streamService.buffer(null, toneBuffer, { volume: 0.1 });
+            setTimeout(playLoop, 900); // Slightly less than buffer duration to avoid gaps
           }
         };
 
         playLoop();
       } catch (err) {
         console.error('Background music error:', err);
+        console.error('Error details:', err.message);
       }
     };
 
@@ -215,3 +216,16 @@ app.ws('/connection', (ws) => {
 
 app.listen(PORT);
 console.log(`Server running on port ${PORT}`);
+
+function generateSineWaveBuffer(frequency = 440, duration = 1) {
+  const sampleRate = 8000; // Twilio requires 8000 Hz
+  const samples = duration * sampleRate;
+  const buffer = Buffer.alloc(samples);
+
+  for (let i = 0; i < samples; i++) {
+    const value = Math.sin(2 * Math.PI * frequency * i / sampleRate);
+    buffer[i] = Math.floor(value * 127 + 128); // Convert to 8-bit unsigned
+  }
+
+  return buffer;
+}
