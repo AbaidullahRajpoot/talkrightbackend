@@ -91,12 +91,22 @@ app.ws('/connection', (ws) => {
     // Add background music service
     const playBackgroundMusic = async () => {
       try {
-        // Read your music file - adjust path as needed
-        const musicBuffer = fs.readFileSync('./assets/background.mp3');
-        while (isBackgroundMusic) {
-          streamService.buffer(null, musicBuffer, { volume: 0.3 }); // Lower volume for background
-          await new Promise(resolve => setTimeout(resolve, musicBuffer.length)); // Wait for music to finish before looping
-        }
+        console.log('Starting background music playback...'); // Debug log
+        const musicBuffer = fs.readFileSync('./assets/background-music.mp3');
+        
+        // Initial play
+        streamService.buffer(null, musicBuffer, { volume: 0.3 });
+        
+        // Set up continuous loop
+        const playLoop = () => {
+          if (isBackgroundMusic) {
+            console.log('Playing music loop'); // Debug log
+            streamService.buffer(null, musicBuffer, { volume: 0.3 });
+            setTimeout(playLoop, 5000); // Adjust timing based on your music length
+          }
+        };
+
+        playLoop();
       } catch (err) {
         console.error('Background music error:', err);
       }
