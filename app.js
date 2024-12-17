@@ -13,6 +13,7 @@ const { recordingService } = require('./services/recording-service');
 const ConnectionDb = require('./db/connectDb');
 const router = require('./routes/routes');
 const callController = require('./controller/callController');
+const { BackgroundAudioService } = require('./services/background-audio-service');
 
 
 const VoiceResponse = require('twilio').twiml.VoiceResponse;
@@ -75,10 +76,15 @@ app.ws('/connection', (ws) => {
     const streamService = new StreamService(ws);
     const transcriptionService = new TranscriptionService();
     const ttsService = new TextToSpeechService({});
+    const backgroundAudioService = new BackgroundAudioService(streamService);
 
     let marks = [];
     let interactionCount = 0;
     let isSpeaking = false;
+
+    // Initialize background music
+    backgroundAudioService.setVolume(0.02);
+    backgroundAudioService.start();
 
     transcriptionService.on('error', (error) => {
       console.error('Critical transcription service error:', error);
@@ -100,6 +106,7 @@ app.ws('/connection', (ws) => {
         recordingService(ttsService, callSid).then(() => {
           console.log(`Twilio -> Starting Media Stream for ${streamSid}`.underline.red);
           isSpeaking = true;
+          backgroundAudioService.adjustVolumeForSpeech(true);
           transcriptionService.pause();
           transcriptionService.start();  // Start the transcription service
           ttsService.generate({ partialResponseIndex: null, partialResponse: `Hi there! I'm Eva from Zuleikha Hospital. How can I help you today?` }, 1);
@@ -116,9 +123,11 @@ app.ws('/connection', (ws) => {
         marks = marks.filter(m => m !== msg.mark.name);
         if (marks.length === 0) {
           isSpeaking = false;
+          backgroundAudioService.adjustVolumeForSpeech(false);
           transcriptionService.resume();
         }
       } else if (msg.event === 'stop') {
+        backgroundAudioService.stop();
         console.log(`Twilio -> Media stream ${streamSid} ended.`.underline.red);
         transcriptionService.stop();  // Stop the transcription service
         callController.trackCallEnd(callSid);
@@ -135,6 +144,7 @@ app.ws('/connection', (ws) => {
     gptService.on('gptreply', async (gptReply, icount) => {
       console.log(`Interaction ${icount}: GPT -> TTS: ${gptReply.partialResponse}`.green);
       isSpeaking = true;
+      backgroundAudioService.adjustVolumeForSpeech(true);
       transcriptionService.pause();
       ttsService.generate(gptReply, icount);
     });
