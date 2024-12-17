@@ -4,6 +4,8 @@ require('colors');
 const express = require('express');
 const ExpressWs = require('express-ws');
 const cors = require("cors");
+const fs = require('fs');
+const WebSocket = require('ws');
 
 const { GptService } = require('./services/gpt-service');
 const { StreamService } = require('./services/stream-service');
@@ -13,7 +15,6 @@ const { recordingService } = require('./services/recording-service');
 const ConnectionDb = require('./db/connectDb');
 const router = require('./routes/routes');
 const callController = require('./controller/callController');
-const { BackgroundAudioService } = require('./services/background-audio-service');
 
 
 const VoiceResponse = require('twilio').twiml.VoiceResponse;
@@ -57,7 +58,16 @@ app.post('/incoming', (req, res) => {
   try {
     const response = new VoiceResponse();
     const connect = response.connect();
-    connect.stream({ url: `wss://${process.env.SERVER}/connection` });
+    
+    // Add two streams - one for AI conversation and one for background music
+    connect.stream({ 
+      url: `wss://${process.env.SERVER}/connection`,
+      name: 'main'
+    });
+    connect.stream({ 
+      url: `wss://${process.env.SERVER}/connection`,
+      name: 'music'
+    });
 
     res.type('text/xml');
     res.end(response.toString());
@@ -71,20 +81,30 @@ app.ws('/connection', (ws) => {
     ws.on('error', console.error);
     let streamSid;
     let callSid;
+    let isBackgroundMusic = false; // Flag to identify music stream
 
     const gptService = new GptService();
     const streamService = new StreamService(ws);
     const transcriptionService = new TranscriptionService();
     const ttsService = new TextToSpeechService({});
-    const backgroundAudioService = new BackgroundAudioService(streamService);
+
+    // Add background music service
+    const playBackgroundMusic = async () => {
+      try {
+        // Read your music file - adjust path as needed
+        const musicBuffer = fs.readFileSync('./assets/background.mp3');
+        while (isBackgroundMusic) {
+          streamService.buffer(null, musicBuffer, { volume: 0.3 }); // Lower volume for background
+          await new Promise(resolve => setTimeout(resolve, musicBuffer.length)); // Wait for music to finish before looping
+        }
+      } catch (err) {
+        console.error('Background music error:', err);
+      }
+    };
 
     let marks = [];
     let interactionCount = 0;
     let isSpeaking = false;
-
-    // Initialize background music
-    backgroundAudioService.setVolume(0.15);
-    backgroundAudioService.start();
 
     transcriptionService.on('error', (error) => {
       console.error('Critical transcription service error:', error);
@@ -99,23 +119,46 @@ app.ws('/connection', (ws) => {
         const phoneNumber = msg.start.from || '0501575591';
 
         streamService.setStreamSid(streamSid);
+        
+        // Check if this is a music stream or AI stream
+        if (msg.start.streamType === 'music') {
+          isBackgroundMusic = true;
+          playBackgroundMusic();
+          return;
+        }
+
+        // Regular AI conversation setup
         gptService.setCallSid(callSid);
         gptService.setCallerPhoneNumber(phoneNumber);
 
-        // Set RECORDING_ENABLED='true' in .env to record calls
         recordingService(ttsService, callSid).then(() => {
           console.log(`Twilio -> Starting Media Stream for ${streamSid}`.underline.red);
           isSpeaking = true;
-          backgroundAudioService.adjustVolumeForSpeech(true);
           transcriptionService.pause();
-          transcriptionService.start();  // Start the transcription service
-          ttsService.generate({ partialResponseIndex: null, partialResponse: `Hi there! I'm Eva from Zuleikha Hospital. How can I help you today?` }, 1);
+          transcriptionService.start();
+          
+          // Create second WebSocket connection for background music
+          const musicWs = new WebSocket(`wss://${process.env.SERVER}/connection`);
+          musicWs.on('open', () => {
+            musicWs.send(JSON.stringify({
+              event: 'start',
+              start: {
+                streamSid: `${streamSid}-music`,
+                callSid: callSid,
+                streamType: 'music'
+              }
+            }));
+          });
+
+          ttsService.generate({ 
+            partialResponseIndex: null, 
+            partialResponse: `Hi there! I'm Eva from Zuleikha Hospital. How can I help you today?` 
+          }, 1);
         }).catch(err => console.error('Error in recordingService:', err));
 
         callController.trackCallStart(callSid, phoneNumber);
       } else if (msg.event === 'media') {
         if (!isSpeaking) {
-          backgroundAudioService.adjustVolumeForSpeech(true);
           transcriptionService.send(msg.media.payload);
         }
       } else if (msg.event === 'mark') {
@@ -124,11 +167,9 @@ app.ws('/connection', (ws) => {
         marks = marks.filter(m => m !== msg.mark.name);
         if (marks.length === 0) {
           isSpeaking = false;
-          backgroundAudioService.adjustVolumeForSpeech(false);
           transcriptionService.resume();
         }
       } else if (msg.event === 'stop') {
-        backgroundAudioService.stop();
         console.log(`Twilio -> Media stream ${streamSid} ended.`.underline.red);
         transcriptionService.stop();  // Stop the transcription service
         callController.trackCallEnd(callSid);
@@ -145,7 +186,6 @@ app.ws('/connection', (ws) => {
     gptService.on('gptreply', async (gptReply, icount) => {
       console.log(`Interaction ${icount}: GPT -> TTS: ${gptReply.partialResponse}`.green);
       isSpeaking = true;
-      backgroundAudioService.adjustVolumeForSpeech(true);
       transcriptionService.pause();
       ttsService.generate(gptReply, icount);
     });
