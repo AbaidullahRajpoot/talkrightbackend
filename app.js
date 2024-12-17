@@ -4,8 +4,6 @@ require('colors');
 const express = require('express');
 const ExpressWs = require('express-ws');
 const cors = require("cors");
-const fs = require('fs');
-const WebSocket = require('ws');
 
 const { GptService } = require('./services/gpt-service');
 const { StreamService } = require('./services/stream-service');
@@ -58,16 +56,7 @@ app.post('/incoming', (req, res) => {
   try {
     const response = new VoiceResponse();
     const connect = response.connect();
-    
-    // Add two streams - one for AI conversation and one for background music
-    connect.stream({ 
-      url: `wss://${process.env.SERVER}/connection`,
-      name: 'main'
-    });
-    connect.stream({ 
-      url: `wss://${process.env.SERVER}/connection`,
-      name: 'music'
-    });
+    connect.stream({ url: `wss://${process.env.SERVER}/connection` });
 
     res.type('text/xml');
     res.end(response.toString());
@@ -81,68 +70,11 @@ app.ws('/connection', (ws) => {
     ws.on('error', console.error);
     let streamSid;
     let callSid;
-    let isBackgroundMusic = false; // Flag to identify music stream
 
     const gptService = new GptService();
     const streamService = new StreamService(ws);
     const transcriptionService = new TranscriptionService();
     const ttsService = new TextToSpeechService({});
-
-    // Add background music service
-    const playBackgroundMusic = async () => {
-      try {
-        console.log('Starting background music playback...');
-        let musicBuffer;
-        try {
-          musicBuffer = fs.readFileSync('./assets/background.mp3');
-          console.log('Music file loaded successfully, size:', musicBuffer.length);
-        } catch (err) {
-          console.error('Error loading music file:', err);
-          return;
-        }
-        
-        // Convert the music buffer to base64
-        const base64Audio = musicBuffer.toString('base64');
-        
-        // Send the audio with explicit media format
-        const mediaPayload = {
-          streamSid: streamSid,
-          event: 'media',
-          media: {
-            payload: base64Audio,
-            track: 'inbound_track',
-            chunk: 1,
-            timestamp: Date.now()
-          }
-        };
-        
-        console.log('Sending first music buffer...');
-        ws.send(JSON.stringify(mediaPayload));
-        
-        // Set up continuous loop with fixed interval
-        const MUSIC_LOOP_INTERVAL = 10000; // 10 seconds
-        
-        const playLoop = () => {
-          if (ws.readyState === WebSocket.OPEN) {
-            console.log('Playing music loop');
-            ws.send(JSON.stringify({
-              ...mediaPayload,
-              media: {
-                ...mediaPayload.media,
-                timestamp: Date.now()
-              }
-            }));
-            setTimeout(playLoop, MUSIC_LOOP_INTERVAL);
-          } else {
-            console.log('WebSocket connection closed, stopping music loop');
-          }
-        };
-
-        playLoop();
-      } catch (err) {
-        console.error('Background music error:', err);
-      }
-    };
 
     let marks = [];
     let interactionCount = 0;
@@ -161,41 +93,16 @@ app.ws('/connection', (ws) => {
         const phoneNumber = msg.start.from || '0501575591';
 
         streamService.setStreamSid(streamSid);
-        
-        // Check if this is a music stream or AI stream
-        if (msg.start.streamType === 'music') {
-          isBackgroundMusic = true;
-          playBackgroundMusic();
-          return;
-        }
-
-        // Regular AI conversation setup
         gptService.setCallSid(callSid);
         gptService.setCallerPhoneNumber(phoneNumber);
 
+        // Set RECORDING_ENABLED='true' in .env to record calls
         recordingService(ttsService, callSid).then(() => {
           console.log(`Twilio -> Starting Media Stream for ${streamSid}`.underline.red);
           isSpeaking = true;
           transcriptionService.pause();
-          transcriptionService.start();
-          
-          // Create second WebSocket connection for background music
-          const musicWs = new WebSocket(`wss://${process.env.SERVER}/connection`);
-          musicWs.on('open', () => {
-            musicWs.send(JSON.stringify({
-              event: 'start',
-              start: {
-                streamSid: `${streamSid}-music`,
-                callSid: callSid,
-                streamType: 'music'
-              }
-            }));
-          });
-
-          ttsService.generate({ 
-            partialResponseIndex: null, 
-            partialResponse: `Hi there! I'm Eva from Zuleikha Hospital. How can I help you today?` 
-          }, 1);
+          transcriptionService.start();  // Start the transcription service
+          ttsService.generate({ partialResponseIndex: null, partialResponse: `Hi there! I'm Eva from Zuleikha Hospital. How can I help you today?` }, 1);
         }).catch(err => console.error('Error in recordingService:', err));
 
         callController.trackCallStart(callSid, phoneNumber);
