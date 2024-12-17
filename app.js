@@ -92,18 +92,49 @@ app.ws('/connection', (ws) => {
     const playBackgroundMusic = async () => {
       try {
         console.log('Starting background music playback...');
-        const musicBuffer = fs.readFileSync('./assets/background.mp3');
+        let musicBuffer;
+        try {
+          musicBuffer = fs.readFileSync('./assets/background.mp3');
+          console.log('Music file loaded successfully, size:', musicBuffer.length);
+        } catch (err) {
+          console.error('Error loading music file:', err);
+          return;
+        }
         
-        // Initial play with lower volume
-        streamService.buffer(null, musicBuffer, { volume: 0.2 }); // Reduced volume to 0.2
+        // Convert the music buffer to base64
+        const base64Audio = musicBuffer.toString('base64');
         
-        // Set up continuous loop
+        // Send the audio with explicit media format
+        const mediaPayload = {
+          streamSid: streamSid,
+          event: 'media',
+          media: {
+            payload: base64Audio,
+            track: 'inbound_track',
+            chunk: 1,
+            timestamp: Date.now()
+          }
+        };
+        
+        console.log('Sending first music buffer...');
+        ws.send(JSON.stringify(mediaPayload));
+        
+        // Set up continuous loop with fixed interval
+        const MUSIC_LOOP_INTERVAL = 10000; // 10 seconds
+        
         const playLoop = () => {
-          if (isBackgroundMusic) {
+          if (ws.readyState === WebSocket.OPEN) {
             console.log('Playing music loop');
-            streamService.buffer(null, musicBuffer, { volume: 0.2 });
-            // Adjust timing based on your music file length (in milliseconds)
-            setTimeout(playLoop, musicDuration); 
+            ws.send(JSON.stringify({
+              ...mediaPayload,
+              media: {
+                ...mediaPayload.media,
+                timestamp: Date.now()
+              }
+            }));
+            setTimeout(playLoop, MUSIC_LOOP_INTERVAL);
+          } else {
+            console.log('WebSocket connection closed, stopping music loop');
           }
         };
 
