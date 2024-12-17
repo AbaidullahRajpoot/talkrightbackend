@@ -8,7 +8,7 @@
     "outbound": "node ./scripts/outbound-call.js",
     "test": "jest",
     "dev": "nodemon app.js",
-    "start": "node app.js"
+    "start": "nodemon app.js"
   },
   "keywords": [],
   "author": "Charlie Weems",

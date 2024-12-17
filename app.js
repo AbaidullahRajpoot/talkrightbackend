@@ -21,7 +21,10 @@ const app = express();
 ExpressWs(app);
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: '*',
+  credentials: true
+}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -29,14 +32,14 @@ const PORT = process.env.PORT || 3000;
 
 //=============================== Database Connection ===============================
 
-const DATABASE_URL = "mongodb+srv://root:root@harridb.hxmancm.mongodb.net/";
+const DATABASE_URL = "mongodb://root:root@ac-ibpk7ae-shard-00-00.hxmancm.mongodb.net:27017,ac-ibpk7ae-shard-00-01.hxmancm.mongodb.net:27017,ac-ibpk7ae-shard-00-02.hxmancm.mongodb.net:27017/?replicaSet=atlas-5rq8tg-shard-0&ssl=true&authSource=admin";
 
 ConnectionDb(DATABASE_URL, (err, db) => {
   if (err) {
-      console.error('Failed to connect to database:'.red, err);
-      process.exit(1);
+    console.error('Failed to connect to database:'.red, err);
+    process.exit(1);
   } else {
-      console.log('Connected to database:'.green, DATABASE_URL);
+    console.log('Connected to database:'.green, DATABASE_URL);
   }
 });
 
@@ -54,7 +57,7 @@ app.post('/incoming', (req, res) => {
     const response = new VoiceResponse();
     const connect = response.connect();
     connect.stream({ url: `wss://${process.env.SERVER}/connection` });
-  
+
     res.type('text/xml');
     res.end(response.toString());
   } catch (err) {
@@ -67,12 +70,12 @@ app.ws('/connection', (ws) => {
     ws.on('error', console.error);
     let streamSid;
     let callSid;
- 
+
     const gptService = new GptService();
     const streamService = new StreamService(ws);
     const transcriptionService = new TranscriptionService();
     const ttsService = new TextToSpeechService({});
-  
+
     let marks = [];
     let interactionCount = 0;
     let isSpeaking = false;
@@ -81,18 +84,18 @@ app.ws('/connection', (ws) => {
       console.error('Critical transcription service error:', error);
       // Handle the error appropriately (e.g., end the call, notify the user)
     });
-  
+
     ws.on('message', function message(data) {
       const msg = JSON.parse(data);
       if (msg.event === 'start') {
         streamSid = msg.start.streamSid;
         callSid = msg.start.callSid;
         const phoneNumber = msg.start.from || '0501575591';
-        
+
         streamService.setStreamSid(streamSid);
         gptService.setCallSid(callSid);
         gptService.setCallerPhoneNumber(phoneNumber);
-    
+
         // Set RECORDING_ENABLED='true' in .env to record calls
         recordingService(ttsService, callSid).then(() => {
           console.log(`Twilio -> Starting Media Stream for ${streamSid}`.underline.red);
@@ -121,26 +124,26 @@ app.ws('/connection', (ws) => {
         callController.trackCallEnd(callSid);
       }
     });
-  
+
     transcriptionService.on('transcription', async (text) => {
       if (!text) { return; }
       console.log(`Interaction ${interactionCount} – STT -> GPT: ${text}`.yellow);
       gptService.completion(text, interactionCount);
       interactionCount += 1;
     });
-    
+
     gptService.on('gptreply', async (gptReply, icount) => {
       console.log(`Interaction ${icount}: GPT -> TTS: ${gptReply.partialResponse}`.green);
       isSpeaking = true;
       transcriptionService.pause();
       ttsService.generate(gptReply, icount);
     });
-  
+
     ttsService.on('speech', (responseIndex, audio, label, icount) => {
       console.log(`Interaction ${icount}: TTS -> TWILIO: ${label}`.blue);
       streamService.buffer(responseIndex, audio);
     });
-  
+
     streamService.on('audiosent', (markLabel) => {
       marks.push(markLabel);
     });
