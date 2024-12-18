@@ -2,6 +2,8 @@ const { google } = require('googleapis');
 const moment = require('moment-timezone');
 const doctorCalendars = require('./doctorCalendars');
 const { getDoctorInfo } = require('../services/doctor-info-service');
+const CalendarSlot = require('../model/CalendarSlotModel');
+const Appointment = require('../model/AppointmentModel');
 
 async function checkAvailability(functionArgs) {
   const { slots, doctor } = functionArgs;
@@ -44,6 +46,21 @@ async function checkAvailability(functionArgs) {
       }
 
       const endDateTime = startDateTime.clone().add(duration, 'minutes');
+
+      const existingSlot = await CalendarSlot.findOne({
+        doctor: doctorInfo._id,
+        startTime: { $lt: endDateTime.toDate() },
+        endTime: { $gt: startDateTime.toDate() },
+        status: { $in: ['booked', 'blocked'] }
+      }).populate('appointmentId');
+
+      if (existingSlot) {
+        return {
+          dateTime: dateTime,
+          available: false,
+          message: 'Time slot is not available',
+        };
+      }
 
       const events = await calendar.events.list({
         calendarId: CALENDAR_ID,
