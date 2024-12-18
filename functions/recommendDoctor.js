@@ -1,4 +1,4 @@
-const Doctor = require('../model/DoctorModel');
+const { getDoctorInfo } = require('../services/doctor-info-service');
 
 /**
  * Recommends a doctor based on department and patient preferences
@@ -10,52 +10,40 @@ const Doctor = require('../model/DoctorModel');
  */
 async function recommendDoctor({ department, language, gender }) {
   try {
-    const query = {};
+    const doctorInfo = await getDoctorInfo();
+    const availableDoctors = [];
     
-    if (department) {
-      query['doctorDepartment.departmentName'] = { 
-        $regex: department, 
-        $options: 'i' 
-      };
-    }
-    
-    if (language) {
-      query.doctorLanguage = { $in: [language] };
-    }
-    
-    if (gender) {
-      query.doctorGender = { 
-        $regex: `^${gender}$`, 
-        $options: 'i' 
-      };
+    for (const [doctorName, info] of Object.entries(doctorInfo)) {
+      if (info.department.toLowerCase() === department.toLowerCase() &&
+          (language ? info.languages.includes(language) : true) &&
+          (gender ? info.gender.toLowerCase() === gender.toLowerCase() : true)) {
+        availableDoctors.push(doctorName);
+      }
     }
 
-    const doctors = await Doctor.find(query)
-      .populate('doctorDepartment');
-
-    if (!doctors || doctors.length === 0) {
+    if (availableDoctors.length === 0) {
       return {
         status: 'no_match',
-        message: 'I apologize, but I couldn\'t find a doctor matching your criteria. Would you like to broaden the search?'
+        message: 'I apologize, but I couldn\'t find a doctor matching all your criteria. Would you like me to broaden the search?'
       };
     }
 
-    const recommendedDoctor = doctors[Math.floor(Math.random() * doctors.length)];
+    const recommendedDoctor = availableDoctors[Math.floor(Math.random() * availableDoctors.length)];
+    const doctorDetails = doctorInfo[recommendedDoctor];
 
     return {
       status: 'success',
-      doctor: `Dr. ${recommendedDoctor.doctorName}`,
-      department: recommendedDoctor.doctorDepartment.departmentName,
-      languages: recommendedDoctor.doctorLanguage,
-      gender: recommendedDoctor.doctorGender,
-      shift: recommendedDoctor.doctorShift
+      doctor: recommendedDoctor,
+      department: doctorDetails.department,
+      languages: doctorDetails.languages,
+      gender: doctorDetails.gender,
+      shift: doctorDetails.shift
     };
-
   } catch (error) {
-    console.error('Error in recommendDoctor:', error);
+    console.error('Error recommending doctor:', error);
     return {
       status: 'error',
-      message: 'An error occurred while finding a doctor'
+      message: 'I apologize, but I encountered an error while finding a doctor. Please try again.'
     };
   }
 }
