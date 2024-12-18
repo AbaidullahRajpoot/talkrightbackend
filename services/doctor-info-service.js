@@ -4,7 +4,12 @@ const doctorController = require('../controller/doctorController');
 async function getDoctorInfo(doctorName) {
   try {
     const doctorInfo = await doctorController.getDoctorInfo();
-    console.log(doctorInfo); // For debugging
+    // Only log once for debugging
+    // console.log(doctorInfo);
+    
+    if (!doctorName) {
+      return doctorInfo;
+    }
     
     return doctorInfo[doctorName] || { department: "", languages: [], gender: "", shift: "" };
   } catch (error) {
