@@ -1,27 +1,30 @@
-const { google } = require('googleapis');
 const moment = require('moment-timezone');
-const doctorCalendars = require('./doctorCalendars');
-const { getDoctorInfo } = require('../services/doctor-info-service');
+const Doctor = require('../model/DoctorModel');
 const CalendarSlot = require('../model/CalendarSlotModel');
 const Appointment = require('../model/AppointmentModel');
 
 async function checkAvailability(functionArgs) {
   const { slots, doctor } = functionArgs;
 
-  if (!doctor || !doctorCalendars[doctor]) {
+  if (!doctor) {
     return JSON.stringify({
       status: 'failure',
       message: 'Invalid or missing doctor name'
     });
   }
 
-  const CALENDAR_ID = doctorCalendars[doctor];
-  const doctorInfo = getDoctorInfo(doctor);
-
   try {
-    const auth = await getAuthClient();
-    console.log('Google Auth client initialized successfully');
-    const calendar = google.calendar({ version: 'v3', auth });
+    // Get doctor info from database
+    const doctorData = await Doctor.findOne({
+      doctorName: doctor.replace('Dr. ', '')
+    }).populate('doctorDepartment');
+
+    if (!doctorData) {
+      return JSON.stringify({
+        status: 'failure',
+        message: 'Doctor not found in database'
+      });
+    }
 
     const currentDateTime = moment().tz('Asia/Dubai');
 
@@ -29,6 +32,7 @@ async function checkAvailability(functionArgs) {
       const { dateTime, duration } = slot;
       const startDateTime = moment.tz(dateTime, 'Asia/Dubai');
       
+      // Check if requested time is in the past
       if (startDateTime.isBefore(currentDateTime)) {
         return {
           dateTime: dateTime,
@@ -37,7 +41,8 @@ async function checkAvailability(functionArgs) {
         };
       }
 
-      if (!isWithinWorkingHours(startDateTime, duration, doctorInfo.shift)) {
+      // Check working hours
+      if (!isWithinWorkingHours(startDateTime, duration, doctorData.doctorShift)) {
         return {
           dateTime: dateTime,
           available: false,
@@ -47,54 +52,61 @@ async function checkAvailability(functionArgs) {
 
       const endDateTime = startDateTime.clone().add(duration, 'minutes');
 
-      const existingSlot = await CalendarSlot.findOne({
-        doctor: doctorInfo._id,
-        startTime: { $lt: endDateTime.toDate() },
-        endTime: { $gt: startDateTime.toDate() },
-        status: { $in: ['booked', 'blocked'] }
-      }).populate('appointmentId');
-
-      if (existingSlot) {
-        return {
-          dateTime: dateTime,
-          available: false,
-          message: 'Time slot is not available',
-        };
-      }
-
-      const events = await calendar.events.list({
-        calendarId: CALENDAR_ID,
-        timeMin: startDateTime.toISOString(),
-        timeMax: endDateTime.toISOString(),
-        timeZone: 'Asia/Dubai',
-        singleEvents: true,
-        orderBy: 'startTime',
+      // Check for existing appointments
+      const existingAppointment = await Appointment.findOne({
+        doctor: doctorData._id,
+        status: { $nin: ['cancelled'] },
+        $or: [
+          {
+            appointmentDateTime: { $lt: endDateTime.toDate() },
+            endDateTime: { $gt: startDateTime.toDate() }
+          }
+        ]
       });
 
-      console.log('Events fetched for availability check:', events.data.items);
+      // Check for blocked slots
+      const blockedSlot = await CalendarSlot.findOne({
+        doctor: doctorData._id,
+        status: 'blocked',
+        startTime: { $lt: endDateTime.toDate() },
+        endTime: { $gt: startDateTime.toDate() }
+      });
 
-      const available = events.data.items.length === 0;
+      const available = !existingAppointment && !blockedSlot;
+      
       return {
         dateTime: dateTime,
         available: available,
-        events: events.data.items,
+        message: available ? 'Available' : 'Time slot is not available',
+        doctor: {
+          name: doctorData.doctorName,
+          department: doctorData.doctorDepartment.departmentName,
+          languages: doctorData.doctorLanguage,
+          shift: doctorData.doctorShift
+        }
       };
     }));
 
+    // If no slots are available, find alternative slots
     let alternativeSlots = [];
     if (!results.some(result => result.available)) {
-      alternativeSlots = await findNextAvailableSlots(calendar, currentDateTime, slots[0].duration, CALENDAR_ID, doctorInfo.shift);
+      alternativeSlots = await findNextAvailableSlots(doctorData, currentDateTime, slots[0].duration);
     }
 
     return JSON.stringify({
+      status: 'success',
       results: results,
-      alternativeSlots: alternativeSlots.map(slot => slot.format('YYYY-MM-DDTHH:mm:ss')),
+      alternativeSlots: alternativeSlots.map(slot => ({
+        dateTime: moment(slot.startTime).format('YYYY-MM-DDTHH:mm:ss'),
+        duration: slot.duration
+      }))
     });
+
   } catch (error) {
-    console.error('Error in checkAvailability function:', error);
+    console.error('Error in checkAvailability:', error);
     return JSON.stringify({ 
       status: 'failure', 
-      message: 'An error occurred while checking availability: ' + (error.response ? error.response.data.error : error.message)
+      message: 'Error checking availability: ' + error.message 
     });
   }
 }
@@ -104,77 +116,63 @@ function isWithinWorkingHours(startDateTime, duration, shift) {
   const startHour = startDateTime.hour();
   const endHour = endDateTime.hour();
 
+  // Skip weekends
+  if (startDateTime.day() === 0 || startDateTime.day() === 6) {
+    return false;
+  }
+
   if (shift === 'Day') {
     return startHour >= 9 && endHour <= 17;
   } else if (shift === 'Night') {
-    return (startHour >= 21 || startHour < 5) && (endHour >= 21 || endHour <= 5);
+    return (startHour >= 18 || startHour < 6) && (endHour >= 18 || endHour <= 6);
   }
+  
   return false;
 }
 
-async function findNextAvailableSlots(calendar, startDateTime, duration, CALENDAR_ID, shift) {
-  let currentDateTime = startDateTime.clone();
-  const endOfDay = startDateTime.clone().endOf('day');
+async function findNextAvailableSlots(doctorData, startDateTime, duration) {
   const availableSlots = [];
+  let currentDateTime = startDateTime.clone().startOf('hour');
+  const endOfWeek = startDateTime.clone().add(7, 'days');
 
-  while (currentDateTime.isBefore(endOfDay) && availableSlots.length < 3) {
-    if (isWithinWorkingHours(currentDateTime, duration, shift)) {
+  while (currentDateTime.isBefore(endOfWeek) && availableSlots.length < 3) {
+    if (isWithinWorkingHours(currentDateTime, duration, doctorData.doctorShift)) {
       const endDateTime = currentDateTime.clone().add(duration, 'minutes');
-      const events = await calendar.events.list({
-        calendarId: CALENDAR_ID,
-        timeMin: currentDateTime.toISOString(),
-        timeMax: endDateTime.toISOString(),
-        timeZone: 'Asia/Dubai',
-        singleEvents: true,
-        orderBy: 'startTime',
+      
+      // Check for existing appointments
+      const existingAppointment = await Appointment.findOne({
+        doctor: doctorData._id,
+        status: { $nin: ['cancelled'] },
+        appointmentDateTime: { $lt: endDateTime.toDate() },
+        endDateTime: { $gt: currentDateTime.toDate() }
       });
 
-      if (events.data.items.length === 0) {
-        availableSlots.push(currentDateTime.clone());
+      // Check for blocked slots
+      const blockedSlot = await CalendarSlot.findOne({
+        doctor: doctorData._id,
+        status: 'blocked',
+        startTime: { $lt: endDateTime.toDate() },
+        endTime: { $gt: currentDateTime.toDate() }
+      });
+
+      if (!existingAppointment && !blockedSlot) {
+        availableSlots.push({
+          startTime: currentDateTime.toDate(),
+          endTime: endDateTime.toDate(),
+          duration: duration,
+          doctor: {
+            name: doctorData.doctorName,
+            department: doctorData.doctorDepartment.departmentName,
+            languages: doctorData.doctorLanguage,
+            shift: doctorData.doctorShift
+          }
+        });
       }
     }
     currentDateTime.add(30, 'minutes');
   }
 
-  if (availableSlots.length < 3) {
-    const nextDaySlots = await findNextAvailableSlots(calendar, startDateTime.clone().add(1, 'day').startOf('day'), duration, CALENDAR_ID, shift);
-    availableSlots.push(...nextDaySlots);
-  }
-
-  return availableSlots.slice(0, 3);
-}
-
-async function getAuthClient() {
-  try {
-    console.log('Attempting to parse GOOGLE_SERVICE_ACCOUNT_KEY...');
-
-    let serviceAccountKey;
-    const rawKey = process.env.GOOGLE_SERVICE_ACCOUNT_KEY;
-
-    try {
-      const trimmedKey = rawKey.trim().replace(/^'(.*)'$/, '$1');
-      serviceAccountKey = JSON.parse(trimmedKey);
-      if (serviceAccountKey.private_key) {
-        serviceAccountKey.private_key = serviceAccountKey.private_key.replace(/\\n/g, '\n');
-      }
-    } catch (parseError) {
-      console.error('Error parsing GOOGLE_SERVICE_ACCOUNT_KEY:', parseError);
-      console.log('Failed to parse key (first 100 characters):', rawKey.substring(0, 100) + '...');
-      throw new Error('Unable to parse GOOGLE_SERVICE_ACCOUNT_KEY');
-    }
-
-    const auth = new google.auth.GoogleAuth({
-      credentials: serviceAccountKey,
-      scopes: ['https://www.googleapis.com/auth/calendar'],
-      clientOptions: {
-        subject: 'admin@talkright.net',
-      },
-    });
-    return auth.getClient();
-  } catch (error) {
-    console.error('Error in getAuthClient:', error);
-    throw new Error('Failed to initialize Google Auth client');
-  }
+  return availableSlots;
 }
 
 module.exports = checkAvailability;

@@ -1,5 +1,5 @@
 const Appointment = require('../model/AppointmentModel');
-const CalendarSlot = require('../model/CalendarSlotModel');
+const CalendarSlot = require('../model/CalenderSlotModel');
 const Doctor = require('../model/DoctorModel');
 const moment = require('moment-timezone');
 

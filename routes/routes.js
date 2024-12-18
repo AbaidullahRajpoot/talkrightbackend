@@ -4,7 +4,7 @@ const DepartmentController = require('../controller/departmentController');
 const DoctorController = require('../controller/doctorController');
 const CalendarController = require('../controller/calendarController');
 const AppointmentController = require('../controller/appointmentController');
-const CalendarSlot = require('../model/CalendarSlotModel');
+const CalendarSlot = require('../model/CalenderSlotModel');
 const router = express.Router();
 
 //=============Public Api Routes==================
