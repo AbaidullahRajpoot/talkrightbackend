@@ -7,14 +7,14 @@ async function getDoctorInfo(doctorName) {
     const result = await doctorController.getDoctorInfo();
     if (result) {
       console.log(result);
-      const doctorInfo = result.data;
+      const doctorInfo = result;
       doctorInfo[doctorName] || { department: "", languages: [], gender: "", shift: "" }
     } else {
       return { department: "", languages: [], gender: "", shift: "" };
     }
   } catch (error) {
     console.error('Error fetching doctor info:', error);
-    return { department: "", languages: [], gender: "", shift: "" };
+    return { department: "", languages: [], gender: "", shift: "" };cd
   }
 }
 

@@ -57,7 +57,7 @@ class DoctorController {
     }
 
     // Get doctor info
-    static async getDoctorInfo(req, res) {
+    static async getDoctorInfo() {
         try {
             const doctors = await Doctor.find()
                 .populate('doctorDepartment')
@@ -74,20 +74,12 @@ class DoctorController {
                 };
             });
 
-            res.status(200).json({
-                success: true,
-                data: formattedDoctorInfo
-            });
+            return formattedDoctorInfo;
         } catch (error) {
             console.error('Error fetching doctors:', error);
-            res.status(500).json({
-                success: false,
-                message: 'Error fetching doctors',
-                error: error.message
-            });
+            throw error;
         }
     }
-
 
     // Get single doctor
     static async getDoctorById(req, res) {
