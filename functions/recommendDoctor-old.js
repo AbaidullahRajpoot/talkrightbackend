@@ -10,16 +10,12 @@ const { getDoctorInfo } = require('../services/doctor-info-service');
  * @returns {Object} The recommendation result
  */
 async function recommendDoctor({ department, language, gender }) {
-  const availableDoctors = [];
-  
-  for (const doctor of Object.keys(doctorCalendars)) {
-    const info = await getDoctorInfo(doctor);
-    if (info.department.toLowerCase() === department.toLowerCase() &&
-        (language ? info.languages.includes(language) : true) &&
-        (gender ? info.gender.toLowerCase() === gender.toLowerCase() : true)) {
-      availableDoctors.push(doctor);
-    }
-  }
+  const availableDoctors = Object.keys(doctorCalendars).filter(doctor => {
+    const info = getDoctorInfo(doctor);
+    return info.department.toLowerCase() === department.toLowerCase() &&
+           (language ? info.languages.includes(language) : true) &&
+           (gender ? info.gender.toLowerCase() === gender.toLowerCase() : true);
+  });
 
   if (availableDoctors.length === 0) {
     return {
@@ -29,7 +25,7 @@ async function recommendDoctor({ department, language, gender }) {
   }
 
   const recommendedDoctor = availableDoctors[Math.floor(Math.random() * availableDoctors.length)];
-  const doctorInfo = await getDoctorInfo(recommendedDoctor);
+  const doctorInfo = getDoctorInfo(recommendedDoctor);
 
   return {
     status: 'success',
