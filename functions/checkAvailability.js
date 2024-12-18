@@ -1,6 +1,5 @@
 const moment = require('moment-timezone');
 const Doctor = require('../model/DoctorModel');
-const CalendarSlot = require('../model/CalendarSlotModel');
 const Appointment = require('../model/AppointmentModel');
 
 async function checkAvailability(functionArgs) {
@@ -64,15 +63,7 @@ async function checkAvailability(functionArgs) {
         ]
       });
 
-      // Check for blocked slots
-      const blockedSlot = await CalendarSlot.findOne({
-        doctor: doctorData._id,
-        status: 'blocked',
-        startTime: { $lt: endDateTime.toDate() },
-        endTime: { $gt: startDateTime.toDate() }
-      });
-
-      const available = !existingAppointment && !blockedSlot;
+      const available = !existingAppointment;
       
       return {
         dateTime: dateTime,
@@ -147,15 +138,7 @@ async function findNextAvailableSlots(doctorData, startDateTime, duration) {
         endDateTime: { $gt: currentDateTime.toDate() }
       });
 
-      // Check for blocked slots
-      const blockedSlot = await CalendarSlot.findOne({
-        doctor: doctorData._id,
-        status: 'blocked',
-        startTime: { $lt: endDateTime.toDate() },
-        endTime: { $gt: currentDateTime.toDate() }
-      });
-
-      if (!existingAppointment && !blockedSlot) {
+      if (!existingAppointment) {
         availableSlots.push({
           startTime: currentDateTime.toDate(),
           endTime: endDateTime.toDate(),
