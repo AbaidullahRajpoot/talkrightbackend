@@ -1,4 +1,3 @@
-const doctorCalendars = require('./doctorCalendars');
 const { getDoctorInfo } = require('../services/doctor-info-service');
 
 /**

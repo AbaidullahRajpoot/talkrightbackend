@@ -3,6 +3,7 @@ const callController = require('../controller/callController');
 const DepartmentController = require('../controller/departmentController');
 const DoctorController = require('../controller/doctorController');
 const CalendarController = require('../controller/calendarController');
+const AppointmentController = require('../controller/appointmentController');
 const router = express.Router();
 
 //=============Public Api Routes==================
@@ -34,5 +35,48 @@ router.post('/calendar-events', CalendarController.createEvent);
 router.put('/calendar-events/:id', CalendarController.updateEvent);
 router.delete('/calendar-events/:id', CalendarController.deleteEvent);
 
+// Appointment routes
+router.post('/appointments', async (req, res) => {
+    try {
+        const appointment = await AppointmentController.createAppointment(req.body);
+        res.json({ success: true, data: appointment });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+router.get('/appointments/doctor/:doctorId', async (req, res) => {
+    try {
+        const appointments = await AppointmentController.getAppointmentsByDoctor(
+            req.params.doctorId,
+            new Date(req.query.startDate),
+            new Date(req.query.endDate)
+        );
+        res.json({ success: true, data: appointments });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+router.get('/appointments/patient/:email', async (req, res) => {
+    try {
+        const appointments = await AppointmentController.getAppointmentsByPatient(req.params.email);
+        res.json({ success: true, data: appointments });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+router.post('/appointments/:appointmentId/cancel', async (req, res) => {
+    try {
+        const appointment = await AppointmentController.cancelAppointment(
+            req.params.appointmentId,
+            req.body.reason
+        );
+        res.json({ success: true, data: appointment });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
 
 module.exports = router;

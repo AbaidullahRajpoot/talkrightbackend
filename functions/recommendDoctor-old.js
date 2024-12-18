@@ -1,4 +1,3 @@
-const doctorCalendars = require('./doctorCalendars');
 const { getDoctorInfo } = require('../services/doctor-info-service');
 
 /**
@@ -10,31 +9,43 @@ const { getDoctorInfo } = require('../services/doctor-info-service');
  * @returns {Object} The recommendation result
  */
 async function recommendDoctor({ department, language, gender }) {
-  const availableDoctors = Object.keys(doctorCalendars).filter(doctor => {
-    const info = getDoctorInfo(doctor);
-    return info.department.toLowerCase() === department.toLowerCase() &&
-           (language ? info.languages.includes(language) : true) &&
-           (gender ? info.gender.toLowerCase() === gender.toLowerCase() : true);
-  });
+  try {
+    const doctorInfo = await getDoctorInfo();
+    const availableDoctors = [];
+    
+    for (const [doctorName, info] of Object.entries(doctorInfo)) {
+      if (info.department.toLowerCase() === department.toLowerCase() &&
+          (language ? info.languages.includes(language) : true) &&
+          (gender ? info.gender.toLowerCase() === gender.toLowerCase() : true)) {
+        availableDoctors.push(doctorName);
+      }
+    }
 
-  if (availableDoctors.length === 0) {
+    if (availableDoctors.length === 0) {
+      return {
+        status: 'no_match',
+        message: 'I apologize, but I couldn\'t find a doctor matching all your criteria. Would you like me to broaden the search?'
+      };
+    }
+
+    const recommendedDoctor = availableDoctors[Math.floor(Math.random() * availableDoctors.length)];
+    const doctorDetails = doctorInfo[recommendedDoctor];
+
     return {
-      status: 'no_match',
-      message: 'I apologize, but I couldn\'t find a doctor matching all your criteria. Would you like me to broaden the search?'
+      status: 'success',
+      doctor: recommendedDoctor,
+      department: doctorDetails.department,
+      languages: doctorDetails.languages,
+      gender: doctorDetails.gender,
+      shift: doctorDetails.shift
+    };
+  } catch (error) {
+    console.error('Error recommending doctor:', error);
+    return {
+      status: 'error',
+      message: 'I apologize, but I encountered an error while finding a doctor. Please try again.'
     };
   }
-
-  const recommendedDoctor = availableDoctors[Math.floor(Math.random() * availableDoctors.length)];
-  const doctorInfo = getDoctorInfo(recommendedDoctor);
-
-  return {
-    status: 'success',
-    doctor: recommendedDoctor,
-    department: doctorInfo.department,
-    languages: doctorInfo.languages,
-    gender: doctorInfo.gender,
-    shift: doctorInfo.shift
-  };
 }
 
 module.exports = recommendDoctor;
