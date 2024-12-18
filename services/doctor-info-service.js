@@ -1,5 +1,5 @@
 // doctorInfoService.js
-const doctorController = require('../controller/departmentController');
+const doctorController = require('../controller/doctorController');
 
 async function getDoctorInfo(doctorName) {
   try {
