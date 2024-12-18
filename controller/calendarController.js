@@ -82,14 +82,13 @@ class CalendarController {
 
             // Transform events to match exactly the required format
             const formattedEvents = events.map(event => ({
-                id: event.id,
+                id: event._id,
                 url: event.url || '',
                 title: event.title,
                 start: event.start,
                 end: event.end,
                 allDay: event.allDay || false,
                 extendedProps: {
-                    id: event.id,
                     calendar: event.extendedProps.calendar,
                     doctor: event.extendedProps.doctor,
                     description: event.extendedProps.description,
@@ -118,16 +117,18 @@ class CalendarController {
                 title: req.body.title,
                 start: new Date(req.body.start),
                 end: new Date(req.body.end),
-                allDay: req.body.allDay,
-                url: req.body.url,
-                'extendedProps.calendar': req.body.calendar,
-                'extendedProps.description': req.body.description,
-                'extendedProps.location': req.body.location,
+                allDay: req.body.allDay || false,
+                url: req.body.url || '',
+                extendedProps: {
+                    calendar: req.body.extendedProps.calendar,
+                    doctor: req.body.extendedProps.doctor,
+                    description: req.body.extendedProps.description,
+                },
                 updatedAt: Date.now()
             };
 
             const event = await CalendarEvent.findOneAndUpdate(
-                { id: req.params.id },
+                { _id: req.params.id },
                 updateData,
                 {
                     new: true,
@@ -144,6 +145,7 @@ class CalendarController {
 
             res.status(200).json({
                 success: true,
+                message: 'Event updated successfully',
                 data: event
             });
         } catch (error) {
@@ -159,7 +161,7 @@ class CalendarController {
     // Delete event
     static async deleteEvent(req, res) {
         try {
-            const event = await CalendarEvent.findOneAndDelete({ id: req.params.id });
+            const event = await CalendarEvent.findOneAndDelete({ _id: req.params.id });
 
             if (!event) {
                 return res.status(404).json({
