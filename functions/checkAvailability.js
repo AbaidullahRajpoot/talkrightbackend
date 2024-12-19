@@ -4,6 +4,7 @@ const Appointment = require('../model/AppointmentModel');
 
 async function checkAvailability(functionArgs) {
   const { slots, doctor } = functionArgs;
+  console.log('functionArgs', slots, doctor);
 
   if (!doctor) {
     return JSON.stringify({
@@ -17,7 +18,7 @@ async function checkAvailability(functionArgs) {
     const doctorData = await Doctor.findOne({
       doctorName: doctor.replace('Dr. ', '')
     }).populate('doctorDepartment');
-
+    console.log("DoctorData",doctorData)
     if (!doctorData) {
       return JSON.stringify({
         status: 'failure',
