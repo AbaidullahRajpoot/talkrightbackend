@@ -37,14 +37,11 @@ router.post('/calendar-events', CalendarController.createEvent);
 router.put('/calendar-events/:id', CalendarController.updateEvent);
 router.delete('/calendar-events/:id', CalendarController.deleteEvent);
 
-//=============Appointment Api Routes==================
-
+// Appointment routes
 router.post('/appointments', AppointmentController.createAppointment);
-router.get('/get-appointments-calendar', AppointmentController.getAppointmentsCalendar);
 router.get('/appointments/doctor/:doctorId', AppointmentController.getAppointmentsByDoctor);
-router.put('/appointments/:id', AppointmentController.updateAppointment);
-router.delete('/appointments/:id', AppointmentController.deleteAppointment);
-router.put('/appointments/:appointmentId/status', AppointmentController.updateAppointmentStatus);
+router.patch('/appointments/:appointmentId/status', AppointmentController.updateAppointmentStatus);
+router.get('/get-appointments-calendar', AppointmentController.getAppointmentsCalendar);
 
 // Calendar slot routes
 router.get('/calendar-slots/doctor/:doctorId', async (req, res) => {
