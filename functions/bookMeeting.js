@@ -78,8 +78,8 @@ async function bookMeeting(functionArgs) {
       status: { $nin: ['cancelled', 'rejected', 'completed'] },
       $or: [
         {
-          appointmentDateTime: { $lt: endDateTimeUTC.toDate() },
-          endDateTime: { $gt: meetingDateTimeUTC.toDate() }
+          appointmentDateTime: { $lt: endDateTimeUTC },
+          endDateTime: { $gt: meetingDateTimeUTC }
         }
       ]
     });
