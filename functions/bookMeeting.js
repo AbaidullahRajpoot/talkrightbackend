@@ -7,11 +7,7 @@ async function bookMeeting(functionArgs) {
   
   try {
     const currentDateTime = moment().tz('Asia/Dubai');
-    // Parse the input time explicitly as Dubai time
-    const meetingDateTime = moment.tz(dateTime, 'YYYY-MM-DDTHH:mm:ss', 'Asia/Dubai');
-    console.log('Booking appointment:');
-    console.log('Input DateTime:', dateTime);
-    console.log('Dubai Time:', meetingDateTime.format('YYYY-MM-DD HH:mm:ss Z'));
+    const meetingDateTime = moment.tz(dateTime, 'Asia/Dubai');
     
     if (!meetingDateTime.isValid()) {
       return JSON.stringify({ status: 'failure', message: 'Invalid date or time' });
@@ -53,10 +49,6 @@ async function bookMeeting(functionArgs) {
     }
 
     const endDateTime = meetingDateTime.clone().add(duration, 'minutes');
-    
-    console.log('Appointment Times (Dubai):');
-    console.log('Start:', meetingDateTime.format('YYYY-MM-DD HH:mm:ss Z'));
-    console.log('End:', endDateTime.format('YYYY-MM-DD HH:mm:ss Z'));
 
     // Check if within working hours
     if (!isWithinWorkingHours(meetingDateTime, duration, doctorData.doctorShift)) {
@@ -66,10 +58,10 @@ async function bookMeeting(functionArgs) {
       });
     }
 
-    // Check for existing appointments in Dubai time
+    // Check for existing appointments
     const existingAppointment = await Appointment.findOne({
       doctor: doctorData._id,
-      status: { $nin: ['cancelled', 'rejected', 'completed'] },
+      status: { $nin: ['cancelled'] },
       $or: [
         {
           appointmentDateTime: { $lt: endDateTime.toDate() },
@@ -85,7 +77,7 @@ async function bookMeeting(functionArgs) {
       });
     }
 
-    // Create appointment using Dubai time
+    // Create appointment
     const appointment = new Appointment({
       appointmentId: `APT-${Math.random().toString(36).substr(2, 9).toUpperCase()}`,
       doctor: doctorData._id,
@@ -108,7 +100,6 @@ async function bookMeeting(functionArgs) {
       appointmentDetails: {
         id: savedAppointment.appointmentId,
         dateTime: meetingDateTime.format('YYYY-MM-DDTHH:mm:ss'),
-        dubaiTime: meetingDateTime.format('YYYY-MM-DD HH:mm:ss Z'),
         doctor: {
           name: doctorData.doctorName,
           department: doctorData.doctorDepartment.departmentName,
