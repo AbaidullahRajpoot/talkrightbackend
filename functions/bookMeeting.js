@@ -99,8 +99,8 @@ async function bookMeeting(functionArgs) {
         name: email.split('@')[0],
         email: email
       },
-      appointmentDateTime: meetingDateTimeUTC.toDate(),
-      endDateTime: endDateTimeUTC.toDate(),
+      appointmentDateTime: meetingDateTimeUTC,
+      endDateTime: endDateTimeUTC,
       duration: duration,
       status: 'scheduled',
       source: 'ai-assistant'
