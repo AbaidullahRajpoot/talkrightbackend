@@ -4,6 +4,7 @@ const OpenAI = require('openai');
 const tools = require('../functions/function-manifest');
 const moment = require('moment-timezone');
 const submitSurvey = require('../controller/submitSurvey');
+const SurveyController = require('../controller/surveyController');
 
 const availableFunctions = {};
 tools.forEach((tool) => {
@@ -322,18 +323,20 @@ class GptService extends EventEmitter {
       const ratings = this.extractRatingsFromMessage(message);
       const feedback = this.extractFeedbackFromMessage(message);
 
-      const surveyResult = await submitSurvey({
-        appointmentId,
-        ratings,
-        feedback,
-        recommendToOthers: message.toLowerCase().includes('yes') || message.toLowerCase().includes('recommend')
+      const surveyResult = await SurveyController.submitSurvey({
+        body: {
+          appointmentId,
+          ratings,
+          feedback,
+          recommendToOthers: message.toLowerCase().includes('yes') || message.toLowerCase().includes('recommend')
+        }
       });
 
-      return JSON.parse(surveyResult);
+      return surveyResult;
     } catch (error) {
       console.error('Error handling survey submission:', error);
       return {
-        status: 'failure',
+        success: false,
         message: 'Unable to process survey submission'
       };
     }
