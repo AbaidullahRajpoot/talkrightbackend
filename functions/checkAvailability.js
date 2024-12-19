@@ -4,6 +4,7 @@ const Appointment = require('../model/AppointmentModel');
 
 async function checkAvailability(functionArgs) {
   const { slots, doctor } = functionArgs;
+  console.log('functionArgs', slots, doctor);
 
   if (!doctor) {
     return JSON.stringify({
@@ -17,7 +18,7 @@ async function checkAvailability(functionArgs) {
     const doctorData = await Doctor.findOne({
       doctorName: doctor.replace('Dr. ', '')
     }).populate('doctorDepartment');
-
+    console.log("DoctorData",doctorData)
     if (!doctorData) {
       return JSON.stringify({
         status: 'failure',
@@ -29,7 +30,8 @@ async function checkAvailability(functionArgs) {
 
     const results = await Promise.all(slots.map(async (slot) => {
       const { dateTime, duration } = slot;
-      const startDateTime = moment.tz(dateTime, 'Asia/Dubai');
+      // Parse the input time explicitly as Dubai time
+      const startDateTime = moment.tz(dateTime, 'YYYY-MM-DDTHH:mm:ss', 'Asia/Dubai');
       
       // Check if requested time is in the past
       if (startDateTime.isBefore(currentDateTime)) {
@@ -51,10 +53,10 @@ async function checkAvailability(functionArgs) {
 
       const endDateTime = startDateTime.clone().add(duration, 'minutes');
 
-      // Check for existing appointments
+      // Check for existing appointments in Dubai time
       const existingAppointment = await Appointment.findOne({
         doctor: doctorData._id,
-        status: { $nin: ['cancelled'] },
+        status: { $nin: ['cancelled', 'rejected', 'completed'] },
         $or: [
           {
             appointmentDateTime: { $lt: endDateTime.toDate() },
@@ -74,6 +76,9 @@ async function checkAvailability(functionArgs) {
           department: doctorData.doctorDepartment.departmentName,
           languages: doctorData.doctorLanguage,
           shift: doctorData.doctorShift
+        },
+        debug: {
+          dubaiTime: startDateTime.format('YYYY-MM-DD HH:mm:ss Z')
         }
       };
     }));
@@ -88,7 +93,7 @@ async function checkAvailability(functionArgs) {
       status: 'success',
       results: results,
       alternativeSlots: alternativeSlots.map(slot => ({
-        dateTime: moment(slot.startTime).format('YYYY-MM-DDTHH:mm:ss'),
+        dateTime: moment.tz(slot.startTime, 'Asia/Dubai').format('YYYY-MM-DDTHH:mm:ss'),
         duration: slot.duration
       }))
     });
@@ -130,10 +135,10 @@ async function findNextAvailableSlots(doctorData, startDateTime, duration) {
     if (isWithinWorkingHours(currentDateTime, duration, doctorData.doctorShift)) {
       const endDateTime = currentDateTime.clone().add(duration, 'minutes');
       
-      // Check for existing appointments
+      // Check for existing appointments in Dubai time
       const existingAppointment = await Appointment.findOne({
         doctor: doctorData._id,
-        status: { $nin: ['cancelled'] },
+        status: { $nin: ['cancelled', 'rejected', 'completed'] },
         appointmentDateTime: { $lt: endDateTime.toDate() },
         endDateTime: { $gt: currentDateTime.toDate() }
       });
