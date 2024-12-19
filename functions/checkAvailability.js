@@ -30,11 +30,9 @@ async function checkAvailability(functionArgs) {
 
     const results = await Promise.all(slots.map(async (slot) => {
       const { dateTime, duration } = slot;
-      
-      // Parse the input time as Dubai time
-      const startDateTime = moment.tz(dateTime, 'YYYY-MM-DDTHH:mm:ss', 'Asia/Dubai');
-      console.log('Original Dubai Time:', dateTime);
-      console.log('Parsed Dubai Time:', startDateTime.format('YYYY-MM-DD HH:mm:ss Z'));
+      // Convert the input time to Dubai timezone and keep it in that timezone
+      const startDateTime = moment.tz(dateTime, 'Asia/Dubai');
+      console.log('Requested start time (Dubai):', startDateTime.format());
       
       // Check if requested time is in the past
       if (startDateTime.isBefore(currentDateTime)) {
@@ -55,16 +53,13 @@ async function checkAvailability(functionArgs) {
       }
 
       const endDateTime = startDateTime.clone().add(duration, 'minutes');
-      
-      // Convert to UTC for database storage
+      console.log('Requested end time (Dubai):', endDateTime.format());
+
+      // Convert times to UTC for database query while maintaining the correct time
       const startDateTimeUTC = startDateTime.clone().utc();
       const endDateTimeUTC = endDateTime.clone().utc();
-      
-      console.log('Appointment Times:');
-      console.log('Dubai Start:', startDateTime.format('YYYY-MM-DD HH:mm:ss Z'));
-      console.log('Dubai End:', endDateTime.format('YYYY-MM-DD HH:mm:ss Z'));
-      console.log('UTC Start:', startDateTimeUTC.format('YYYY-MM-DD HH:mm:ss Z'));
-      console.log('UTC End:', endDateTimeUTC.format('YYYY-MM-DD HH:mm:ss Z'));
+      console.log('Start time (UTC):', startDateTimeUTC.format());
+      console.log('End time (UTC):', endDateTimeUTC.format());
 
       // Enhanced check for existing appointments with proper time comparison
       const existingAppointment = await Appointment.findOne({
@@ -72,9 +67,9 @@ async function checkAvailability(functionArgs) {
         status: { $nin: ['cancelled', 'rejected', 'completed'] },
         $or: [
           {
-            appointmentDateTime: { $lt: endDateTimeUTC.toDate() },
+            appointmentDateTime: { $lte: endDateTimeUTC.toDate() },
             endDateTime: { $gt: startDateTimeUTC.toDate() }
-          }
+          },
         ]
       });
 
@@ -90,10 +85,6 @@ async function checkAvailability(functionArgs) {
           languages: doctorData.doctorLanguage,
           shift: doctorData.doctorShift
         },
-        debug: {
-          dubaiTime: startDateTime.format('YYYY-MM-DD HH:mm:ss Z'),
-          utcTime: startDateTimeUTC.format('YYYY-MM-DD HH:mm:ss Z')
-        }
       };
     }));
 
@@ -107,7 +98,7 @@ async function checkAvailability(functionArgs) {
       status: 'success',
       results: results,
       alternativeSlots: alternativeSlots.map(slot => ({
-        dateTime: moment.tz(slot.startTime, 'Asia/Dubai').format('YYYY-MM-DDTHH:mm:ss'),
+        dateTime: moment(slot.startTime).format('YYYY-MM-DDTHH:mm:ss'),
         duration: slot.duration
       }))
     });
