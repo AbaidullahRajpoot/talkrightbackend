@@ -3,8 +3,7 @@ const EventEmitter = require('events');
 const OpenAI = require('openai');
 const tools = require('../functions/function-manifest');
 const moment = require('moment-timezone');
-const submitSurvey = require('../controller/submitSurvey');
-const SurveyController = require('../controller/surveyController');
+const SurveyController = require('../controller/submitSurvey');
 
 const availableFunctions = {};
 tools.forEach((tool) => {
@@ -320,18 +319,26 @@ class GptService extends EventEmitter {
 
   async handleSurveySubmission(message, appointmentId) {
     try {
+      if (!appointmentId) {
+        console.error('No appointmentId provided for survey');
+        return {
+          success: false,
+          message: 'Appointment ID is required'
+        };
+      }
+
       const ratings = this.extractRatingsFromMessage(message);
       const feedback = this.extractFeedbackFromMessage(message);
 
+      // Direct submission without wrapping in body
       const surveyResult = await SurveyController.submitSurvey({
-        body: {
-          appointmentId,
-          ratings,
-          feedback,
-          recommendToOthers: message.toLowerCase().includes('yes') || message.toLowerCase().includes('recommend')
-        }
+        appointmentId,
+        ratings,
+        feedback,
+        recommendToOthers: message.toLowerCase().includes('yes') || message.toLowerCase().includes('recommend')
       });
 
+      console.log('Survey submission result:', surveyResult); // Debug log
       return surveyResult;
     } catch (error) {
       console.error('Error handling survey submission:', error);

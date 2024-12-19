@@ -1,9 +1,13 @@
 const Survey = require('../model/SurveyModel');
 
 class SurveyController {
-    static async submitSurvey(req, res) {
+    static async submitSurvey(surveyData) {
         try {
-            const { appointmentId, ratings, feedback, recommendToOthers } = req.body;
+            const { appointmentId, ratings, feedback, recommendToOthers } = surveyData;
+
+            if (!appointmentId) {
+                throw new Error('Appointment ID is required');
+            }
 
             const survey = new Survey({
                 appointmentId,
@@ -13,6 +17,7 @@ class SurveyController {
             });
 
             const savedSurvey = await survey.save();
+            console.log('Survey saved:', savedSurvey); // Debug log
 
             return {
                 success: true,
