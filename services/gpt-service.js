@@ -3,7 +3,7 @@ const EventEmitter = require('events');
 const OpenAI = require('openai');
 const tools = require('../functions/function-manifest');
 const moment = require('moment-timezone');
-const SurveyController = require('../controller/submitSurvey');
+const SurveyController = require('../controller/surveyController');
 
 const availableFunctions = {};
 tools.forEach((tool) => {
@@ -327,24 +327,31 @@ class GptService extends EventEmitter {
         };
       }
 
+      console.log('Processing survey for appointment:', appointmentId); // Debug log
       const ratings = this.extractRatingsFromMessage(message);
+      console.log('Extracted ratings:', ratings); // Debug log
+      
       const feedback = this.extractFeedbackFromMessage(message);
+      console.log('Extracted feedback:', feedback); // Debug log
 
-      // Direct submission without wrapping in body
-      const surveyResult = await SurveyController.submitSurvey({
+      const surveyData = {
         appointmentId,
         ratings,
         feedback,
         recommendToOthers: message.toLowerCase().includes('yes') || message.toLowerCase().includes('recommend')
-      });
-
+      };
+      
+      console.log('Submitting survey data:', surveyData); // Debug log
+      const surveyResult = await SurveyController.submitSurvey(surveyData);
       console.log('Survey submission result:', surveyResult); // Debug log
+      
       return surveyResult;
     } catch (error) {
       console.error('Error handling survey submission:', error);
       return {
         success: false,
-        message: 'Unable to process survey submission'
+        message: 'Unable to process survey submission',
+        error: error.message
       };
     }
   }
