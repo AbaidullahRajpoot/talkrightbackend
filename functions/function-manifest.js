@@ -208,54 +208,6 @@ const tools = [
       }
     },
   },
-  {
-    type: 'function',
-    function: {
-      name: 'submitSurvey',
-      say: "I'll process your feedback.",
-      description: 'Submit a survey for an appointment',
-      parameters: {
-        type: 'object',
-        properties: {
-          appointmentId: {
-            type: 'string',
-            description: 'The ID of the appointment'
-          },
-          ratings: {
-            type: 'object',
-            properties: {
-              overall: {
-                type: 'number',
-                description: 'Overall rating (1-5)'
-              },
-              waitingTime: {
-                type: 'number',
-                description: 'Rating for waiting time (1-5)'
-              },
-              doctorBehavior: {
-                type: 'number',
-                description: 'Rating for doctor behavior (1-5)'
-              },
-              cleanliness: {
-                type: 'number',
-                description: 'Rating for cleanliness (1-5)'
-              }
-            },
-            required: ['overall']
-          },
-          feedback: {
-            type: 'string',
-            description: 'Text feedback from the user'
-          },
-          recommendToOthers: {
-            type: 'boolean',
-            description: 'Whether the user would recommend to others'
-          }
-        },
-        required: ['appointmentId', 'ratings']
-      }
-    }
-  }
 ];
 
 module.exports = tools;

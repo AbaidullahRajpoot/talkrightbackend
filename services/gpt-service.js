@@ -3,7 +3,6 @@ const EventEmitter = require('events');
 const OpenAI = require('openai');
 const tools = require('../functions/function-manifest');
 const moment = require('moment-timezone');
-const SurveyController = require('../controller/surveyController');
 
 const availableFunctions = {};
 tools.forEach((tool) => {
@@ -315,72 +314,6 @@ class GptService extends EventEmitter {
 
   setSpeakingState(isSpeaking) {
     this.isSpeaking = isSpeaking;
-  }
-
-  async handleSurveySubmission(message, appointmentId) {
-    try {
-      if (!appointmentId) {
-        console.error('No appointmentId provided for survey');
-        return {
-          success: false,
-          message: 'Appointment ID is required'
-        };
-      }
-
-      console.log('Processing survey for appointment:', appointmentId);
-      const ratings = this.extractRatingsFromMessage(message);
-      const feedback = this.extractFeedbackFromMessage(message);
-
-      // Create function call arguments
-      const functionArgs = JSON.stringify({
-        appointmentId: appointmentId.toString(),
-        ratings: ratings,
-        feedback: feedback,
-        recommendToOthers: message.toLowerCase().includes('yes') || message.toLowerCase().includes('recommend')
-      });
-
-      // Use the existing function call mechanism
-      await this.handleFunctionCall('submitSurvey', functionArgs, 0);
-
-      return {
-        success: true,
-        message: 'Survey submitted successfully'
-      };
-    } catch (error) {
-      console.error('Error handling survey submission:', error);
-      return {
-        success: false,
-        message: 'Unable to process survey submission',
-        error: error.message
-      };
-    }
-  }
-
-  // Helper methods to extract information from messages
-  extractRatingsFromMessage(message) {
-    const ratings = {
-      overall: 0,
-      waitingTime: 0,
-      doctorBehavior: 0,
-      cleanliness: 0
-    };
-
-    const numbers = message.match(/\d+/g);
-    if (numbers && numbers.length > 0) {
-      ratings.overall = Math.min(Math.max(parseInt(numbers[0]), 1), 5);
-      if (numbers.length > 1) ratings.waitingTime = Math.min(Math.max(parseInt(numbers[1]), 1), 5);
-      if (numbers.length > 2) ratings.doctorBehavior = Math.min(Math.max(parseInt(numbers[2]), 1), 5);
-      if (numbers.length > 3) ratings.cleanliness = Math.min(Math.max(parseInt(numbers[3]), 1), 5);
-    }
-
-    return ratings;
-  }
-
-  extractFeedbackFromMessage(message) {
-    return message
-      .replace(/\d+/g, '')
-      .replace(/rating|score|stars|out of 5|\/5/gi, '')
-      .trim();
   }
 }
 
