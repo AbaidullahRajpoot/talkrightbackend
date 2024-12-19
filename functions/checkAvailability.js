@@ -30,7 +30,9 @@ async function checkAvailability(functionArgs) {
 
     const results = await Promise.all(slots.map(async (slot) => {
       const { dateTime, duration } = slot;
+      // Convert the input time to Dubai timezone and keep it in that timezone
       const startDateTime = moment.tz(dateTime, 'Asia/Dubai');
+      console.log('Requested start time (Dubai):', startDateTime.format());
       
       // Check if requested time is in the past
       if (startDateTime.isBefore(currentDateTime)) {
@@ -51,27 +53,23 @@ async function checkAvailability(functionArgs) {
       }
 
       const endDateTime = startDateTime.clone().add(duration, 'minutes');
+      console.log('Requested end time (Dubai):', endDateTime.format());
+
+      // Convert times to UTC for database query while maintaining the correct time
+      const startDateTimeUTC = startDateTime.clone().utc();
+      const endDateTimeUTC = endDateTime.clone().utc();
+      console.log('Start time (UTC):', startDateTimeUTC.format());
+      console.log('End time (UTC):', endDateTimeUTC.format());
 
       // Enhanced check for existing appointments with proper time comparison
       const existingAppointment = await Appointment.findOne({
         doctor: doctorData._id,
         status: { $nin: ['cancelled', 'rejected', 'completed'] },
         $or: [
-          // Check if new appointment starts during an existing appointment
           {
-            appointmentDateTime: { $lte: startDateTime.toDate() },
-            endDateTime: { $gt: startDateTime.toDate() }
+            appointmentDateTime: { $lte: endDateTimeUTC.toDate() },
+            endDateTime: { $gt: startDateTimeUTC.toDate() }
           },
-          // Check if new appointment ends during an existing appointment
-          {
-            appointmentDateTime: { $lt: endDateTime.toDate() },
-            endDateTime: { $gte: endDateTime.toDate() }
-          },
-          // Check if new appointment completely encompasses an existing appointment
-          {
-            appointmentDateTime: { $gte: startDateTime.toDate() },
-            endDateTime: { $lte: endDateTime.toDate() }
-          }
         ]
       });
 
@@ -86,7 +84,7 @@ async function checkAvailability(functionArgs) {
           department: doctorData.doctorDepartment.departmentName,
           languages: doctorData.doctorLanguage,
           shift: doctorData.doctorShift
-        }
+        },
       };
     }));
 
