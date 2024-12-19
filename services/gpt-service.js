@@ -3,6 +3,7 @@ const EventEmitter = require('events');
 const OpenAI = require('openai');
 const tools = require('../functions/function-manifest');
 const moment = require('moment-timezone');
+const submitSurvey = require('../controller/submitSurvey');
 
 const availableFunctions = {};
 tools.forEach((tool) => {
@@ -314,6 +315,55 @@ class GptService extends EventEmitter {
 
   setSpeakingState(isSpeaking) {
     this.isSpeaking = isSpeaking;
+  }
+
+  async handleSurveySubmission(message, appointmentId) {
+    try {
+      const ratings = this.extractRatingsFromMessage(message);
+      const feedback = this.extractFeedbackFromMessage(message);
+
+      const surveyResult = await submitSurvey({
+        appointmentId,
+        ratings,
+        feedback,
+        recommendToOthers: message.toLowerCase().includes('yes') || message.toLowerCase().includes('recommend')
+      });
+
+      return JSON.parse(surveyResult);
+    } catch (error) {
+      console.error('Error handling survey submission:', error);
+      return {
+        status: 'failure',
+        message: 'Unable to process survey submission'
+      };
+    }
+  }
+
+  // Helper methods to extract information from messages
+  extractRatingsFromMessage(message) {
+    const ratings = {
+      overall: 0,
+      waitingTime: 0,
+      doctorBehavior: 0,
+      cleanliness: 0
+    };
+
+    const numbers = message.match(/\d+/g);
+    if (numbers && numbers.length > 0) {
+      ratings.overall = Math.min(Math.max(parseInt(numbers[0]), 1), 5);
+      if (numbers.length > 1) ratings.waitingTime = Math.min(Math.max(parseInt(numbers[1]), 1), 5);
+      if (numbers.length > 2) ratings.doctorBehavior = Math.min(Math.max(parseInt(numbers[2]), 1), 5);
+      if (numbers.length > 3) ratings.cleanliness = Math.min(Math.max(parseInt(numbers[3]), 1), 5);
+    }
+
+    return ratings;
+  }
+
+  extractFeedbackFromMessage(message) {
+    return message
+      .replace(/\d+/g, '')
+      .replace(/rating|score|stars|out of 5|\/5/gi, '')
+      .trim();
   }
 }
 

@@ -6,6 +6,7 @@ const CalendarController = require('../controller/calendarController');
 const AppointmentController = require('../controller/appointmentController');
 const CalendarSlot = require('../model/CalenderSlotModel');
 const router = express.Router();
+const Survey = require('../model/SurveyModel');
 
 //=============Public Api Routes==================
 
@@ -83,6 +84,80 @@ router.post('/calendar-slots/block', async (req, res) => {
     } catch (error) {
         res.status(500).json({
             success: false,
+            error: error.message
+        });
+    }
+});
+
+// Submit a new survey
+router.post('/surveys', async (req, res) => {
+    try {
+        const survey = new Survey(req.body);
+        await survey.save();
+        res.status(201).json({
+            success: true,
+            message: 'Survey submitted successfully',
+            data: survey
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: 'Error submitting survey',
+            error: error.message
+        });
+    }
+});
+
+// Get surveys for a specific doctor
+router.get('/surveys/doctor/:doctorId', async (req, res) => {
+    try {
+        const surveys = await Survey.find({ doctor: req.params.doctorId })
+            .populate('appointment')
+            .sort('-createdAt');
+        res.json({
+            success: true,
+            data: surveys
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: 'Error fetching surveys',
+            error: error.message
+        });
+    }
+});
+
+// Get survey statistics for a doctor
+router.get('/surveys/stats/doctor/:doctorId', async (req, res) => {
+    try {
+        const stats = await Survey.aggregate([
+            { $match: { doctor: mongoose.Types.ObjectId(req.params.doctorId) } },
+            {
+                $group: {
+                    _id: null,
+                    averageOverall: { $avg: '$ratings.overall' },
+                    averageWaitingTime: { $avg: '$ratings.waitingTime' },
+                    averageDoctorBehavior: { $avg: '$ratings.doctorBehavior' },
+                    averageCleanliness: { $avg: '$ratings.cleanliness' },
+                    recommendationRate: {
+                        $avg: { $cond: ['$recommendToOthers', 1, 0] }
+                    },
+                    totalSurveys: { $sum: 1 }
+                }
+            }
+        ]);
+
+        res.json({
+            success: true,
+            data: stats[0] || {
+                averageOverall: 0,
+                totalSurveys: 0
+            }
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: 'Error fetching survey statistics',
             error: error.message
         });
     }
