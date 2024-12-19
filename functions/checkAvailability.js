@@ -52,14 +52,25 @@ async function checkAvailability(functionArgs) {
 
       const endDateTime = startDateTime.clone().add(duration, 'minutes');
 
-      // Check for existing appointments
+      // Enhanced check for existing appointments with proper time comparison
       const existingAppointment = await Appointment.findOne({
         doctor: doctorData._id,
-        status: { $nin: ['cancelled'] },
+        status: { $nin: ['cancelled', 'rejected', 'completed'] },
         $or: [
+          // Check if new appointment starts during an existing appointment
+          {
+            appointmentDateTime: { $lte: startDateTime.toDate() },
+            endDateTime: { $gt: startDateTime.toDate() }
+          },
+          // Check if new appointment ends during an existing appointment
           {
             appointmentDateTime: { $lt: endDateTime.toDate() },
-            endDateTime: { $gt: startDateTime.toDate() }
+            endDateTime: { $gte: endDateTime.toDate() }
+          },
+          // Check if new appointment completely encompasses an existing appointment
+          {
+            appointmentDateTime: { $gte: startDateTime.toDate() },
+            endDateTime: { $lte: endDateTime.toDate() }
           }
         ]
       });
