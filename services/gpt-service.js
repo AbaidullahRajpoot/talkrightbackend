@@ -327,25 +327,25 @@ class GptService extends EventEmitter {
         };
       }
 
-      console.log('Processing survey for appointment:', appointmentId); // Debug log
+      console.log('Processing survey for appointment:', appointmentId);
       const ratings = this.extractRatingsFromMessage(message);
-      console.log('Extracted ratings:', ratings); // Debug log
-      
       const feedback = this.extractFeedbackFromMessage(message);
-      console.log('Extracted feedback:', feedback); // Debug log
 
-      const surveyData = {
-        appointmentId,
-        ratings,
-        feedback,
+      // Create function call arguments
+      const functionArgs = JSON.stringify({
+        appointmentId: appointmentId.toString(),
+        ratings: ratings,
+        feedback: feedback,
         recommendToOthers: message.toLowerCase().includes('yes') || message.toLowerCase().includes('recommend')
+      });
+
+      // Use the existing function call mechanism
+      await this.handleFunctionCall('submitSurvey', functionArgs, 0);
+
+      return {
+        success: true,
+        message: 'Survey submitted successfully'
       };
-      
-      console.log('Submitting survey data:', surveyData); // Debug log
-      const surveyResult = await SurveyController.submitSurvey(surveyData);
-      console.log('Survey submission result:', surveyResult); // Debug log
-      
-      return surveyResult;
     } catch (error) {
       console.error('Error handling survey submission:', error);
       return {
