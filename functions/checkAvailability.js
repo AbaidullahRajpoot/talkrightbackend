@@ -30,7 +30,9 @@ async function checkAvailability(functionArgs) {
 
     const results = await Promise.all(slots.map(async (slot) => {
       const { dateTime, duration } = slot;
-      const startDateTime = moment.tz(dateTime, 'Asia/Dubai');
+      const startDateTime = moment.tz(dateTime, 'YYYY-MM-DDTHH:mm:ss', 'Asia/Dubai');
+      
+      console.log('Requested start time (Dubai):', startDateTime.format());
       
       if (startDateTime.isBefore(currentDateTime)) {
         return {
@@ -50,16 +52,21 @@ async function checkAvailability(functionArgs) {
 
       const endDateTime = startDateTime.clone().add(duration, 'minutes');
 
-      // Convert times to UTC for database query
+      // Store appointment times in UTC
       const startDateTimeUTC = startDateTime.clone().utc();
       const endDateTimeUTC = endDateTime.clone().utc();
+
+      console.log('Checking appointment overlap:', {
+        start: startDateTimeUTC.format(),
+        end: endDateTimeUTC.format()
+      });
 
       const existingAppointment = await Appointment.findOne({
         doctor: doctorData._id,
         status: { $nin: ['cancelled', 'rejected', 'completed'] },
         $or: [
           {
-            appointmentDateTime: { $lte: endDateTimeUTC.toDate() },
+            appointmentDateTime: { $lt: endDateTimeUTC.toDate() },
             endDateTime: { $gt: startDateTimeUTC.toDate() }
           }
         ]
