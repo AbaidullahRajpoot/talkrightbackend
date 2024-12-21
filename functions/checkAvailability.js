@@ -124,7 +124,10 @@ function isWithinWorkingHours(startDateTime, duration, shift) {
 
 async function findNextAvailableSlots(doctorData, startDateTime, duration) {
   const availableSlots = [];
-  let currentDateTime = startDateTime.clone().startOf('hour');
+  let currentDateTime = startDateTime.clone();
+  if (currentDateTime.minutes() > 0) {
+    currentDateTime.add(1, 'hour').startOf('hour');
+  }
   const endOfWeek = startDateTime.clone().add(7, 'days');
 
   while (currentDateTime.isBefore(endOfWeek) && availableSlots.length < 3) {
@@ -135,8 +138,12 @@ async function findNextAvailableSlots(doctorData, startDateTime, duration) {
       const existingAppointment = await Appointment.findOne({
         doctor: doctorData._id,
         status: { $nin: ['cancelled'] },
-        appointmentDateTime: { $lt: endDateTime.toDate() },
-        endDateTime: { $gt: currentDateTime.toDate() }
+        $or: [
+          {
+            appointmentDateTime: { $lt: endDateTime.toDate() },
+            endDateTime: { $gt: currentDateTime.toDate() }
+          }
+        ]
       });
 
       if (!existingAppointment) {
