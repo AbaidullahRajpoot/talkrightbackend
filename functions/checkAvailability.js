@@ -4,6 +4,7 @@ const Appointment = require('../model/AppointmentModel');
 
 async function checkAvailability(functionArgs) {
   const { slots, doctor } = functionArgs;
+  console.log('functionArgs', slots, doctor);
 
   if (!doctor) {
     return JSON.stringify({
@@ -17,7 +18,7 @@ async function checkAvailability(functionArgs) {
     const doctorData = await Doctor.findOne({
       doctorName: doctor.replace('Dr. ', '')
     }).populate('doctorDepartment');
-
+    console.log("DoctorData",doctorData)
     if (!doctorData) {
       return JSON.stringify({
         status: 'failure',
@@ -29,7 +30,9 @@ async function checkAvailability(functionArgs) {
 
     const results = await Promise.all(slots.map(async (slot) => {
       const { dateTime, duration } = slot;
+      // Convert the input time to Dubai timezone and keep it in that timezone
       const startDateTime = moment.tz(dateTime, 'Asia/Dubai');
+      console.log('Requested start time (Dubai):', startDateTime.format());
       
       // Check if requested time is in the past
       if (startDateTime.isBefore(currentDateTime)) {
@@ -50,16 +53,23 @@ async function checkAvailability(functionArgs) {
       }
 
       const endDateTime = startDateTime.clone().add(duration, 'minutes');
+      console.log('Requested end time (Dubai):', endDateTime.format());
 
-      // Check for existing appointments
+      // Convert times to UTC for database query while maintaining the correct time
+      const startDateTimeUTC = startDateTime.clone().utc();
+      const endDateTimeUTC = endDateTime.clone().utc();
+      console.log('Start time (UTC):', startDateTimeUTC.format());
+      console.log('End time (UTC):', endDateTimeUTC.format());
+
+      // Enhanced check for existing appointments with proper time comparison
       const existingAppointment = await Appointment.findOne({
         doctor: doctorData._id,
-        status: { $nin: ['cancelled'] },
+        status: { $nin: ['cancelled', 'rejected', 'completed'] },
         $or: [
           {
-            appointmentDateTime: { $lt: endDateTime.toDate() },
-            endDateTime: { $gt: startDateTime.toDate() }
-          }
+            appointmentDateTime: { $lte: endDateTimeUTC.toDate() },
+            endDateTime: { $gt: startDateTimeUTC.toDate() }
+          },
         ]
       });
 
@@ -74,7 +84,7 @@ async function checkAvailability(functionArgs) {
           department: doctorData.doctorDepartment.departmentName,
           languages: doctorData.doctorLanguage,
           shift: doctorData.doctorShift
-        }
+        },
       };
     }));
 
@@ -113,9 +123,17 @@ function isWithinWorkingHours(startDateTime, duration, shift) {
   }
 
   if (shift === 'Day') {
-    return startHour >= 9 && endHour <= 17;
+    // Check if both start and end times are within 9 AM to 5 PM
+    return startHour >= 9 && startHour < 17 && endHour >= 9 && endHour <= 17;
   } else if (shift === 'Night') {
-    return (startHour >= 18 || startHour < 6) && (endHour >= 18 || endHour <= 6);
+    // For night shift (6 PM to 6 AM)
+    if (startHour >= 18) {
+      // Starting after 6 PM
+      return endHour >= 18 || endHour <= 6;
+    } else if (startHour < 6) {
+      // Starting before 6 AM
+      return endHour <= 6;
+    }
   }
   
   return false;
@@ -130,12 +148,20 @@ async function findNextAvailableSlots(doctorData, startDateTime, duration) {
     if (isWithinWorkingHours(currentDateTime, duration, doctorData.doctorShift)) {
       const endDateTime = currentDateTime.clone().add(duration, 'minutes');
       
-      // Check for existing appointments
+      // Convert times to UTC for database query
+      const currentDateTimeUTC = currentDateTime.clone().utc();
+      const endDateTimeUTC = endDateTime.clone().utc();
+
+      // Check for existing appointments with proper time comparison
       const existingAppointment = await Appointment.findOne({
         doctor: doctorData._id,
-        status: { $nin: ['cancelled'] },
-        appointmentDateTime: { $lt: endDateTime.toDate() },
-        endDateTime: { $gt: currentDateTime.toDate() }
+        status: { $nin: ['cancelled', 'rejected', 'completed'] },
+        $or: [
+          {
+            appointmentDateTime: { $lte: endDateTimeUTC.toDate() },
+            endDateTime: { $gt: currentDateTimeUTC.toDate() }
+          }
+        ]
       });
 
       if (!existingAppointment) {

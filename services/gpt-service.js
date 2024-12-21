@@ -139,11 +139,11 @@ class GptService extends EventEmitter {
       1) How they would rate the quality and speed of this call, on a scale of 1 to 5, with 5 being the best.
       2) How well were their needs understood and addressed, on a scale of 1 to 5, with 5 being the best.
       - Wait for their responses and acknowledge them appropriately.
-      - Thank them for their feedback, regardless of the score.
+      - Use the saveUserRating function to save their ratings.
       - End the call on a positive note, wishing them well for their upcoming appointment.
       
       Remember to maintain your warm and friendly demeanor throughout the conversation, even when focusing on accuracy. Your goal is to make the patient feel both well-cared for and confident in the booking process.` },
-      { 'role': 'assistant', 'content': `Hi there! I'm Emily from Zuleikha Hospital. How can I help you today?` },
+      { 'role': 'assistant', 'content': `Hi there! I'm Eva from Zuleikha Hospital. How can I help you today?` },
     ];
     this.partialResponseIndex = 0;
     this.isProcessing = false;

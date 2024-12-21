@@ -208,6 +208,46 @@ const tools = [
       }
     },
   },
+  {
+    type: 'function',
+    function: {
+      name: 'saveUserRating',
+      say: "Thank you for your feedback!",
+      description: 'Saves the user\'s feedback ratings for the quality and effectiveness of the call',
+      parameters: {
+        type: 'object',
+        properties: {
+          callQualityRating: { 
+            type: 'number', 
+            description: 'Rating from 1-5 for the quality and speed of the call',
+            minimum: 1,
+            maximum: 5
+          },
+          needsAddressedRating: { 
+            type: 'number', 
+            description: 'Rating from 1-5 for how well their needs were understood and addressed',
+            minimum: 1,
+            maximum: 5
+          }
+        },
+        required: ['callQualityRating', 'needsAddressedRating']
+      },
+      returns: {
+        type: 'object',
+        properties: {
+          status: {
+            type: 'string',
+            enum: ['success', 'failure'],
+            description: 'The status of saving the ratings'
+          },
+          message: {
+            type: 'string',
+            description: 'A message describing the result of saving the ratings'
+          }
+        }
+      }
+    },
+  }
 ];
 
 module.exports = tools;

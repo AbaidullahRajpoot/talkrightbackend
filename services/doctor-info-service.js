@@ -4,6 +4,7 @@ const doctorController = require('../controller/doctorController');
 async function getDoctorInfo(doctorName) {
   try {
     const doctorInfo = await doctorController.getDoctorInfo();
+    console.log(doctorInfo);
     // Only log once for debugging
     // console.log(doctorInfo);
     
