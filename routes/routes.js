@@ -4,6 +4,7 @@ const DepartmentController = require('../controller/departmentController');
 const DoctorController = require('../controller/doctorController');
 const CalendarController = require('../controller/calendarController');
 const AppointmentController = require('../controller/appointmentController');
+const CalendarSlot = require('../model/CalendarSlotModel');
 const router = express.Router();
 
 //=============Public Api Routes==================
@@ -27,7 +28,6 @@ router.get('/get-doctor-info', DoctorController.getDoctorInfo);
 router.get('/doctors/:id', DoctorController.getDoctorById);
 router.put('/doctors/:id', DoctorController.updateDoctor);
 router.delete('/doctors/:id', DoctorController.deleteDoctor);
-router.get('/doctors/department/:id', DoctorController.getAllDoctorsByDepartment);
 
 //=============Calendar Api Routes==================
 
@@ -40,11 +40,52 @@ router.delete('/calendar-events/:id', CalendarController.deleteEvent);
 router.post('/appointments', AppointmentController.createAppointment);
 router.get('/appointments/doctor/:doctorId', AppointmentController.getAppointmentsByDoctor);
 router.patch('/appointments/:appointmentId/status', AppointmentController.updateAppointmentStatus);
-router.get('/get-appointments-calendar', AppointmentController.getAppointmentsCalendar);
 
-//Appointment Calendar Api Routes
-router.post('/calendar-appointments', AppointmentController.createAppointmentCalendar);
-router.put('/calendar-appointments/:id', AppointmentController.updateCalendarAppointment);
-router.delete('/calendar-appointments/:id', AppointmentController.deleteCalendarAppointment);
+// Calendar slot routes
+router.get('/calendar-slots/doctor/:doctorId', async (req, res) => {
+    try {
+        const { startDate, endDate } = req.query;
+        const slots = await CalendarSlot.find({
+            doctor: req.params.doctorId,
+            startTime: {
+                $gte: new Date(startDate),
+                $lte: new Date(endDate)
+            }
+        }).populate('doctor').sort('startTime');
+
+        res.json({
+            success: true,
+            data: slots
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+});
+
+router.post('/calendar-slots/block', async (req, res) => {
+    try {
+        const { doctorId, startTime, endTime, notes } = req.body;
+        const slot = new CalendarSlot({
+            doctor: doctorId,
+            startTime: new Date(startTime),
+            endTime: new Date(endTime),
+            status: 'blocked',
+            notes
+        });
+        await slot.save();
+        res.json({
+            success: true,
+            data: slot
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+});
 
 module.exports = router;
