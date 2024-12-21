@@ -35,6 +35,20 @@ class DoctorController {
         }
     }
 
+    //Get all doctors by department
+    static async getAllDoctorsByDepartment(req, res) {
+        try {
+            const doctors = await Doctor.find({ doctorDepartment: req.params.id });
+            if (!doctors) {
+                return res.status(404).json({ success: false, message: 'Doctors not found' });
+            } else {
+                res.status(200).json({ success: true, data: doctors });
+            }
+        } catch (error) {
+            res.status(500).json({ success: false, message: 'Error fetching doctors', error: error.message });
+        }
+    }
+
     // Get all doctors
     static async getAllDoctors(req, res) {
         try {
