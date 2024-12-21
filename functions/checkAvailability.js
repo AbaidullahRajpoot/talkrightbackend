@@ -62,8 +62,7 @@ async function checkAvailability(functionArgs) {
           }
         ]
       });
-      console.log("doctorData._id",doctorData._id);
-      console.log("existingAppointment",existingAppointment);
+
       const available = !existingAppointment;
       
       return {
@@ -116,14 +115,13 @@ function isWithinWorkingHours(startDateTime, duration, shift) {
   if (shift === 'Day') {
     return startHour >= 9 && endHour <= 17;
   } else if (shift === 'Night') {
-    return ((startHour >= 21 || startHour < 5) && (endHour >= 21 || endHour <= 5));
+    return (startHour >= 18 || startHour < 6) && (endHour >= 18 || endHour <= 6);
   }
   
   return false;
 }
 
 async function findNextAvailableSlots(doctorData, startDateTime, duration) {
-  console.log("doctorData",doctorData);
   const availableSlots = [];
   let currentDateTime = startDateTime.clone().startOf('hour');
   const endOfWeek = startDateTime.clone().add(7, 'days');
