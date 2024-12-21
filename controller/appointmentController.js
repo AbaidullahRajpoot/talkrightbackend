@@ -25,19 +25,14 @@ class AppointmentController {
                 });
             }
 
-            // Parse and validate the appointment time in Dubai timezone
-            const startDateTime = moment.tz(appointmentDateTime, 'YYYY-MM-DDTHH:mm:ss', 'Asia/Dubai');
+            const startDateTime = moment.tz(appointmentDateTime, 'Asia/Dubai');
             const endDateTime = startDateTime.clone().add(duration || 30, 'minutes');
-
-            // Convert to UTC for database queries
-            const startDateTimeUTC = startDateTime.clone().utc();
-            const endDateTimeUTC = endDateTime.clone().utc();
 
             // Check slot availability
             const existingSlot = await CalendarSlot.findOne({
                 doctor: doctorId,
-                startTime: { $lt: endDateTimeUTC.toDate() },
-                endTime: { $gt: startDateTimeUTC.toDate() },
+                startTime: { $lt: endDateTime.toDate() },
+                endTime: { $gt: startDateTime.toDate() },
                 status: { $in: ['booked', 'blocked'] }
             });
 
@@ -48,7 +43,7 @@ class AppointmentController {
                 });
             }
 
-            // Create appointment with UTC times
+            // Create appointment
             const appointment = new Appointment({
                 appointmentId: `APT-${Math.random().toString(36).substr(2, 9).toUpperCase()}`,
                 doctor: doctorId,
@@ -57,19 +52,19 @@ class AppointmentController {
                     email: patientEmail,
                     phone: patientPhone
                 },
-                appointmentDateTime: startDateTimeUTC.toDate(),
-                endDateTime: endDateTimeUTC.toDate(),
+                appointmentDateTime: startDateTime.toDate(),
+                endDateTime: endDateTime.toDate(),
                 duration: duration || 30,
                 status: 'scheduled'
             });
 
             const savedAppointment = await appointment.save();
 
-            // Create calendar slot with UTC times
+            // Create calendar slot
             const calendarSlot = new CalendarSlot({
                 doctor: doctorId,
-                startTime: startDateTimeUTC.toDate(),
-                endTime: endDateTimeUTC.toDate(),
+                startTime: startDateTime.toDate(),
+                endTime: endDateTime.toDate(),
                 duration: duration || 30,
                 status: 'booked',
                 appointmentId: savedAppointment._id
@@ -77,17 +72,10 @@ class AppointmentController {
 
             await calendarSlot.save();
 
-            // Convert times back to Dubai timezone for response
-            const responseAppointment = {
-                ...savedAppointment.toObject(),
-                appointmentDateTime: moment(savedAppointment.appointmentDateTime).tz('Asia/Dubai').format(),
-                endDateTime: moment(savedAppointment.endDateTime).tz('Asia/Dubai').format()
-            };
-
             res.status(201).json({
                 success: true,
                 message: 'Appointment created successfully',
-                data: responseAppointment
+                data: savedAppointment
             });
 
         } catch (error) {
