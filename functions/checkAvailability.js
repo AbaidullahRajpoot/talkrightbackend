@@ -62,7 +62,8 @@ async function checkAvailability(functionArgs) {
           }
         ]
       });
-
+      console.log("doctorData._id",doctorData._id);
+      console.log("existingAppointment",existingAppointment);
       const available = !existingAppointment;
       
       return {
