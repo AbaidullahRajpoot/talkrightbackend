@@ -116,7 +116,14 @@ function isWithinWorkingHours(startDateTime, duration, shift) {
   if (shift === 'Day') {
     return startHour >= 9 && endHour <= 17;
   } else if (shift === 'Night') {
-    return ((startHour >= 21 || startHour < 5) && (endHour >= 21 || endHour <= 5));
+    // For night shift, handle the case when appointment spans across midnight
+    if (startHour < endHour) {
+      // Same day - must be before 5 AM
+      return startHour < 5 && endHour <= 5;
+    } else {
+      // Different day or same hour
+      return startHour >= 21 || (startHour < 5 && endHour <= 5);
+    }
   }
   
   return false;
