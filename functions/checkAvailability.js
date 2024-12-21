@@ -3,7 +3,7 @@ const Doctor = require('../model/DoctorModel');
 const Appointment = require('../model/AppointmentModel');
 
 async function checkAvailability(functionArgs) {
-  const { slots, doctor } = functionArgs;
+  const { slots, doctor } = functionArgs; 
 
   if (!doctor) {
     return JSON.stringify({
