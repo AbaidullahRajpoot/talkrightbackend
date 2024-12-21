@@ -4,9 +4,7 @@ const DepartmentController = require('../controller/departmentController');
 const DoctorController = require('../controller/doctorController');
 const CalendarController = require('../controller/calendarController');
 const AppointmentController = require('../controller/appointmentController');
-const CalendarSlot = require('../model/CalenderSlotModel');
 const router = express.Router();
-const Survey = require('../model/SurveyModel');
 
 //=============Public Api Routes==================
 
@@ -48,52 +46,5 @@ router.get('/get-appointments-calendar', AppointmentController.getAppointmentsCa
 router.post('/calendar-appointments', AppointmentController.createAppointmentCalendar);
 router.put('/calendar-appointments/:id', AppointmentController.updateCalendarAppointment);
 router.delete('/calendar-appointments/:id', AppointmentController.deleteCalendarAppointment);
-
-// Calendar slot routes
-router.get('/calendar-slots/doctor/:doctorId', async (req, res) => {
-    try {
-        const { startDate, endDate } = req.query;
-        const slots = await CalendarSlot.find({
-            doctor: req.params.doctorId,
-            startTime: {
-                $gte: new Date(startDate),
-                $lte: new Date(endDate)
-            }
-        }).populate('doctor').sort('startTime');
-
-        res.json({
-            success: true,
-            data: slots
-        });
-    } catch (error) {
-        res.status(500).json({
-            success: false,
-            error: error.message
-        });
-    }
-});
-
-router.post('/calendar-slots/block', async (req, res) => {
-    try {
-        const { doctorId, startTime, endTime, notes } = req.body;
-        const slot = new CalendarSlot({
-            doctor: doctorId,
-            startTime: new Date(startTime),
-            endTime: new Date(endTime),
-            status: 'blocked',
-            notes
-        });
-        await slot.save();
-        res.json({
-            success: true,
-            data: slot
-        });
-    } catch (error) {
-        res.status(500).json({
-            success: false,
-            error: error.message
-        });
-    }
-});
 
 module.exports = router;
