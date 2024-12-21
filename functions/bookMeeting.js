@@ -1,7 +1,27 @@
 const moment = require('moment-timezone');
-const Doctor = require('../model/DoctorModel');
-const Appointment = require('../model/AppointmentModel');
-const CalendarSlot = require('../model/CalendarSlotModel');
+const { Doctor } = require('../model/DoctorModel');
+const { Appointment } = require('../model/AppointmentModel');
+const { CalendarSlot } = require('../model/CalendarSlotModel');
+
+// Helper function for working hours validation
+function isWithinWorkingHours(startDateTime, duration, shift) {
+  const endDateTime = startDateTime.clone().add(duration, 'minutes');
+  const startHour = startDateTime.hour();
+  const endHour = endDateTime.hour();
+
+  // Skip weekends
+  if (startDateTime.day() === 0 || startDateTime.day() === 6) {
+    return false;
+  }
+
+  if (shift === 'Day') {
+    return startHour >= 9 && endHour <= 17;
+  } else if (shift === 'Night') {
+    return (startHour >= 18 || startHour < 6) && (endHour >= 18 || endHour <= 6);
+  }
+  
+  return false;
+}
 
 async function bookMeeting(functionArgs) {
   const { dateTime, email, duration = 30, confirmedDateTime, confirmedEmail, doctor } = functionArgs;
@@ -134,25 +154,6 @@ async function bookMeeting(functionArgs) {
       message: 'Failed to book appointment: ' + error.message
     });
   }
-}
-
-function isWithinWorkingHours(startDateTime, duration, shift) {
-  const endDateTime = startDateTime.clone().add(duration, 'minutes');
-  const startHour = startDateTime.hour();
-  const endHour = endDateTime.hour();
-
-  // Skip weekends
-  if (startDateTime.day() === 0 || startDateTime.day() === 6) {
-    return false;
-  }
-
-  if (shift === 'Day') {
-    return startHour >= 9 && endHour <= 17;
-  } else if (shift === 'Night') {
-    return (startHour >= 18 || startHour < 6) && (endHour >= 18 || endHour <= 6);
-  }
-  
-  return false;
 }
 
 module.exports = bookMeeting;
