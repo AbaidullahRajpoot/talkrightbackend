@@ -323,7 +323,7 @@ class AppointmentController {
             });
         }
     }
-
+ 
     // Update appointment from calendar
     static async updateCalendarAppointment(req, res) {
         try {
