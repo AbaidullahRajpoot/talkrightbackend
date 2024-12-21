@@ -4,7 +4,6 @@ const Appointment = require('../model/AppointmentModel');
 
 async function checkAvailability(functionArgs) {
   const { slots, doctor } = functionArgs;
-  console.log('functionArgs', slots, doctor);
 
   if (!doctor) {
     return JSON.stringify({
@@ -18,7 +17,7 @@ async function checkAvailability(functionArgs) {
     const doctorData = await Doctor.findOne({
       doctorName: doctor.replace('Dr. ', '')
     }).populate('doctorDepartment');
-    console.log("DoctorData",doctorData)
+
     if (!doctorData) {
       return JSON.stringify({
         status: 'failure',
@@ -32,6 +31,7 @@ async function checkAvailability(functionArgs) {
       const { dateTime, duration } = slot;
       const startDateTime = moment.tz(dateTime, 'Asia/Dubai');
       
+      // Check if requested time is in the past
       if (startDateTime.isBefore(currentDateTime)) {
         return {
           dateTime: dateTime,
@@ -40,6 +40,7 @@ async function checkAvailability(functionArgs) {
         };
       }
 
+      // Check working hours
       if (!isWithinWorkingHours(startDateTime, duration, doctorData.doctorShift)) {
         return {
           dateTime: dateTime,
@@ -50,17 +51,14 @@ async function checkAvailability(functionArgs) {
 
       const endDateTime = startDateTime.clone().add(duration, 'minutes');
 
-      // Convert times to UTC for database query
-      const startDateTimeUTC = startDateTime.clone().utc();
-      const endDateTimeUTC = endDateTime.clone().utc();
-
+      // Check for existing appointments
       const existingAppointment = await Appointment.findOne({
         doctor: doctorData._id,
-        status: { $nin: ['cancelled', 'rejected', 'completed'] },
+        status: { $nin: ['cancelled'] },
         $or: [
           {
-            appointmentDateTime: { $lte: endDateTimeUTC.toDate() },
-            endDateTime: { $gt: startDateTimeUTC.toDate() }
+            appointmentDateTime: { $lt: endDateTime.toDate() },
+            endDateTime: { $gt: startDateTime.toDate() }
           }
         ]
       });
@@ -76,10 +74,11 @@ async function checkAvailability(functionArgs) {
           department: doctorData.doctorDepartment.departmentName,
           languages: doctorData.doctorLanguage,
           shift: doctorData.doctorShift
-        },
+        }
       };
     }));
 
+    // If no slots are available, find alternative slots
     let alternativeSlots = [];
     if (!results.some(result => result.available)) {
       alternativeSlots = await findNextAvailableSlots(doctorData, currentDateTime, slots[0].duration);
@@ -88,7 +87,10 @@ async function checkAvailability(functionArgs) {
     return JSON.stringify({
       status: 'success',
       results: results,
-      alternativeSlots: alternativeSlots.map(slot => slot.format('YYYY-MM-DDTHH:mm:ss')),
+      alternativeSlots: alternativeSlots.map(slot => ({
+        dateTime: moment(slot.startTime).format('YYYY-MM-DDTHH:mm:ss'),
+        duration: slot.duration
+      }))
     });
 
   } catch (error) {
@@ -105,51 +107,55 @@ function isWithinWorkingHours(startDateTime, duration, shift) {
   const startHour = startDateTime.hour();
   const endHour = endDateTime.hour();
 
+  // Skip weekends
+  if (startDateTime.day() === 0 || startDateTime.day() === 6) {
+    return false;
+  }
+
   if (shift === 'Day') {
     return startHour >= 9 && endHour <= 17;
   } else if (shift === 'Night') {
-    return (startHour >= 21 || startHour < 5) && (endHour >= 21 || endHour <= 5);
+    return (startHour >= 18 || startHour < 6) && (endHour >= 18 || endHour <= 6);
   }
+  
   return false;
 }
 
 async function findNextAvailableSlots(doctorData, startDateTime, duration) {
-  let currentDateTime = startDateTime.clone();
-  const endOfDay = startDateTime.clone().endOf('day');
   const availableSlots = [];
+  let currentDateTime = startDateTime.clone().startOf('hour');
+  const endOfWeek = startDateTime.clone().add(7, 'days');
 
-  while (currentDateTime.isBefore(endOfDay) && availableSlots.length < 3) {
+  while (currentDateTime.isBefore(endOfWeek) && availableSlots.length < 3) {
     if (isWithinWorkingHours(currentDateTime, duration, doctorData.doctorShift)) {
       const endDateTime = currentDateTime.clone().add(duration, 'minutes');
       
-      // Convert times to UTC for database query
-      const currentDateTimeUTC = currentDateTime.clone().utc();
-      const endDateTimeUTC = endDateTime.clone().utc();
-
+      // Check for existing appointments
       const existingAppointment = await Appointment.findOne({
         doctor: doctorData._id,
-        status: { $nin: ['cancelled', 'rejected', 'completed'] },
-        $or: [
-          {
-            appointmentDateTime: { $lte: endDateTimeUTC.toDate() },
-            endDateTime: { $gt: currentDateTimeUTC.toDate() }
-          }
-        ]
+        status: { $nin: ['cancelled'] },
+        appointmentDateTime: { $lt: endDateTime.toDate() },
+        endDateTime: { $gt: currentDateTime.toDate() }
       });
 
       if (!existingAppointment) {
-        availableSlots.push(currentDateTime.clone());
+        availableSlots.push({
+          startTime: currentDateTime.toDate(),
+          endTime: endDateTime.toDate(),
+          duration: duration,
+          doctor: {
+            name: doctorData.doctorName,
+            department: doctorData.doctorDepartment.departmentName,
+            languages: doctorData.doctorLanguage,
+            shift: doctorData.doctorShift
+          }
+        });
       }
     }
     currentDateTime.add(30, 'minutes');
   }
 
-  if (availableSlots.length < 3) {
-    const nextDaySlots = await findNextAvailableSlots(doctorData, startDateTime.clone().add(1, 'day').startOf('day'), duration);
-    availableSlots.push(...nextDaySlots);
-  }
-
-  return availableSlots.slice(0, 3);
+  return availableSlots;
 }
 
 module.exports = checkAvailability;
