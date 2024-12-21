@@ -25,14 +25,19 @@ class AppointmentController {
                 });
             }
 
-            const startDateTime = moment.tz(appointmentDateTime, 'Asia/Dubai');
+            // Parse and validate the appointment time in Dubai timezone
+            const startDateTime = moment.tz(appointmentDateTime, 'YYYY-MM-DDTHH:mm:ss', 'Asia/Dubai');
             const endDateTime = startDateTime.clone().add(duration || 30, 'minutes');
+
+            // Convert to UTC for database queries
+            const startDateTimeUTC = startDateTime.clone().utc();
+            const endDateTimeUTC = endDateTime.clone().utc();
 
             // Check slot availability
             const existingSlot = await CalendarSlot.findOne({
                 doctor: doctorId,
-                startTime: { $lt: endDateTime.toDate() },
-                endTime: { $gt: startDateTime.toDate() },
+                startTime: { $lt: endDateTimeUTC.toDate() },
+                endTime: { $gt: startDateTimeUTC.toDate() },
                 status: { $in: ['booked', 'blocked'] }
             });
 
@@ -43,7 +48,7 @@ class AppointmentController {
                 });
             }
 
-            // Create appointment
+            // Create appointment with UTC times
             const appointment = new Appointment({
                 appointmentId: `APT-${Math.random().toString(36).substr(2, 9).toUpperCase()}`,
                 doctor: doctorId,
@@ -52,19 +57,19 @@ class AppointmentController {
                     email: patientEmail,
                     phone: patientPhone
                 },
-                appointmentDateTime: startDateTime.toDate(),
-                endDateTime: endDateTime.toDate(),
+                appointmentDateTime: startDateTimeUTC.toDate(),
+                endDateTime: endDateTimeUTC.toDate(),
                 duration: duration || 30,
                 status: 'scheduled'
             });
 
             const savedAppointment = await appointment.save();
 
-            // Create calendar slot
+            // Create calendar slot with UTC times
             const calendarSlot = new CalendarSlot({
                 doctor: doctorId,
-                startTime: startDateTime.toDate(),
-                endTime: endDateTime.toDate(),
+                startTime: startDateTimeUTC.toDate(),
+                endTime: endDateTimeUTC.toDate(),
                 duration: duration || 30,
                 status: 'booked',
                 appointmentId: savedAppointment._id
@@ -72,10 +77,17 @@ class AppointmentController {
 
             await calendarSlot.save();
 
+            // Convert times back to Dubai timezone for response
+            const responseAppointment = {
+                ...savedAppointment.toObject(),
+                appointmentDateTime: moment(savedAppointment.appointmentDateTime).tz('Asia/Dubai').format(),
+                endDateTime: moment(savedAppointment.endDateTime).tz('Asia/Dubai').format()
+            };
+
             res.status(201).json({
                 success: true,
                 message: 'Appointment created successfully',
-                data: savedAppointment
+                data: responseAppointment
             });
 
         } catch (error) {
@@ -239,8 +251,13 @@ class AppointmentController {
                 });
             }
 
-            const startDateTime = moment.tz(appointmentDateTime, 'Asia/Dubai');
+            // Parse and validate the appointment time in Dubai timezone
+            const startDateTime = moment.tz(appointmentDateTime, 'YYYY-MM-DDTHH:mm:ss', 'Asia/Dubai');
             const endDateTime = startDateTime.clone().add(30, 'minutes');
+
+            // Convert to UTC for database queries
+            const startDateTimeUTC = startDateTime.clone().utc();
+            const endDateTimeUTC = endDateTime.clone().utc();
 
             // Check for overlapping appointments
             const existingAppointment = await Appointment.findOne({
@@ -248,8 +265,8 @@ class AppointmentController {
                 status: { $ne: 'cancelled' },
                 $or: [
                     {
-                        appointmentDateTime: { $lt: endDateTime.toDate() },
-                        endDateTime: { $gt: startDateTime.toDate() }
+                        appointmentDateTime: { $lt: endDateTimeUTC.toDate() },
+                        endDateTime: { $gt: startDateTimeUTC.toDate() }
                     }
                 ]
             });
@@ -261,7 +278,7 @@ class AppointmentController {
                 });
             }
 
-            // Create appointment
+            // Create appointment with UTC times
             const appointment = new Appointment({
                 appointmentId: `APT-${Math.random().toString(36).substr(2, 9).toUpperCase()}`,
                 doctor: doctorId,
@@ -269,20 +286,20 @@ class AppointmentController {
                     name: patientName,
                     email: patientEmail
                 },
-                appointmentDateTime: startDateTime.toDate(),
-                endDateTime: endDateTime.toDate(),
+                appointmentDateTime: startDateTimeUTC.toDate(),
+                endDateTime: endDateTimeUTC.toDate(),
                 duration: 30,
                 status: 'scheduled'
             });
 
             const savedAppointment = await appointment.save();
 
-            // Format the response to match frontend expectations
+            // Format the response with Dubai timezone
             const formattedAppointment = {
                 id: savedAppointment._id,
                 title: savedAppointment.patient.name,
-                start: savedAppointment.appointmentDateTime,
-                end: savedAppointment.endDateTime,
+                start: moment(savedAppointment.appointmentDateTime).tz('Asia/Dubai').format(),
+                end: moment(savedAppointment.endDateTime).tz('Asia/Dubai').format(),
                 extendedProps: {
                     email: savedAppointment.patient.email,
                     doctor: {
