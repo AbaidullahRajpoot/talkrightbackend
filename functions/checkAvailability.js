@@ -122,13 +122,18 @@ function isWithinWorkingHours(startDateTime, duration, shift) {
     return false;
   }
 
-  if (shift === 'Day') {
-    return startHour >= 9 && endHour <= 17;
-  } else if (shift === 'Night') {
-    return (startHour >= 18 || startHour < 6) && (endHour >= 18 || endHour <= 6);
+  if (shift === 'Night') {
+    // For night shift (9 PM - 5 AM)
+    // Handle cases crossing midnight
+    if (startHour >= 21) { // After 9 PM
+      return endHour >= 21 || endHour <= 5;
+    } else if (startHour < 5) { // Before 5 AM
+      return endHour <= 5;
+    }
+    return false;
   }
   
-  return false;
+  return false; // Default to false for safety
 }
 
 async function findNextAvailableSlots(doctorData, startDateTime, duration) {
