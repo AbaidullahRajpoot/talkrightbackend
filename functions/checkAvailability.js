@@ -116,25 +116,16 @@ function isWithinWorkingHours(startDateTime, duration, shift) {
   if (shift === 'Day') {
     return startHour >= 9 && endHour <= 17;
   } else if (shift === 'Night') {
-    // For night shift, handle the case when appointment spans across midnight
-    if (startHour < endHour) {
-      // Same day - must be before 5 AM
-      return startHour < 5 && endHour <= 5;
-    } else {
-      // Different day or same hour
-      return startHour >= 21 || (startHour < 5 && endHour <= 5);
-    }
+    return ((startHour >= 21 || startHour < 5) && (endHour >= 21 || endHour <= 5));
   }
   
   return false;
 }
 
 async function findNextAvailableSlots(doctorData, startDateTime, duration) {
+  console.log("doctorData",doctorData);
   const availableSlots = [];
-  let currentDateTime = startDateTime.clone();
-  if (currentDateTime.minutes() > 0) {
-    currentDateTime.add(1, 'hour').startOf('hour');
-  }
+  let currentDateTime = startDateTime.clone().startOf('hour');
   const endOfWeek = startDateTime.clone().add(7, 'days');
 
   while (currentDateTime.isBefore(endOfWeek) && availableSlots.length < 3) {
@@ -145,12 +136,8 @@ async function findNextAvailableSlots(doctorData, startDateTime, duration) {
       const existingAppointment = await Appointment.findOne({
         doctor: doctorData._id,
         status: { $nin: ['cancelled'] },
-        $or: [
-          {
-            appointmentDateTime: { $lt: endDateTime.toDate() },
-            endDateTime: { $gt: currentDateTime.toDate() }
-          }
-        ]
+        appointmentDateTime: { $lt: endDateTime.toDate() },
+        endDateTime: { $gt: currentDateTime.toDate() }
       });
 
       if (!existingAppointment) {
