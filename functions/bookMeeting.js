@@ -1,27 +1,6 @@
 const moment = require('moment-timezone');
-const { Doctor } = require('../model/DoctorModel');
-const { Appointment } = require('../model/AppointmentModel');
-const { CalendarSlot } = require('../model/CalendarSlotModel');
-
-// Helper function for working hours validation
-function isWithinWorkingHours(startDateTime, duration, shift) {
-  const endDateTime = startDateTime.clone().add(duration, 'minutes');
-  const startHour = startDateTime.hour();
-  const endHour = endDateTime.hour();
-
-  // Skip weekends
-  if (startDateTime.day() === 0 || startDateTime.day() === 6) {
-    return false;
-  }
-
-  if (shift === 'Day') {
-    return startHour >= 9 && endHour <= 17;
-  } else if (shift === 'Night') {
-    return (startHour >= 18 || startHour < 6) && (endHour >= 18 || endHour <= 6);
-  }
-  
-  return false;
-}
+const Doctor = require('../model/DoctorModel');
+const Appointment = require('../model/AppointmentModel');
 
 async function bookMeeting(functionArgs) {
   const { dateTime, email, duration = 30, confirmedDateTime, confirmedEmail, doctor } = functionArgs;
@@ -30,19 +9,14 @@ async function bookMeeting(functionArgs) {
     const currentDateTime = moment().tz('Asia/Dubai');
     const meetingDateTime = moment.tz(dateTime, 'Asia/Dubai');
     
-    // Validate date time format
     if (!meetingDateTime.isValid()) {
-      return JSON.stringify({ 
-        status: 'failure', 
-        message: 'Invalid date or time format. Please provide a valid date and time.' 
-      });
+      return JSON.stringify({ status: 'failure', message: 'Invalid date or time' });
     }
 
-    // Check if time is in the past
     if (meetingDateTime.isBefore(currentDateTime)) {
       return JSON.stringify({ 
         status: 'failure', 
-        message: 'The requested appointment time is in the past. Please choose a future time.' 
+        message: 'The requested appointment time is in the past' 
       });
     }
 
@@ -58,11 +32,10 @@ async function bookMeeting(functionArgs) {
       });
     }
 
-    // Request confirmation if not already confirmed
     if (!confirmedDateTime || !confirmedEmail) {
       return JSON.stringify({
         status: 'needs_confirmation',
-        message: 'Please confirm the following appointment details:',
+        message: 'Please confirm all details before booking.',
         email: email,
         dateTime: meetingDateTime.format('MMMM D, YYYY [at] h:mm A [GST]'),
         duration: duration,
@@ -81,7 +54,7 @@ async function bookMeeting(functionArgs) {
     if (!isWithinWorkingHours(meetingDateTime, duration, doctorData.doctorShift)) {
       return JSON.stringify({
         status: 'failure',
-        message: `This time is outside of Dr. ${doctorData.doctorName}'s working hours`
+        message: 'The requested time is outside of doctor\'s working hours'
       });
     }
 
@@ -100,7 +73,7 @@ async function bookMeeting(functionArgs) {
     if (existingAppointment) {
       return JSON.stringify({
         status: 'failure',
-        message: 'This time slot is already booked. Please choose another time.'
+        message: 'This time slot is no longer available'
       });
     }
 
@@ -121,27 +94,17 @@ async function bookMeeting(functionArgs) {
 
     const savedAppointment = await appointment.save();
 
-    // Create calendar slot
-    const calendarSlot = new CalendarSlot({
-      doctor: doctorData._id,
-      startTime: meetingDateTime.toDate(),
-      endTime: endDateTime.toDate(),
-      duration: duration,
-      status: 'booked',
-      appointmentId: savedAppointment._id
-    });
-
-    await calendarSlot.save();
-
     return JSON.stringify({
       status: 'success',
       message: 'Appointment booked successfully',
       appointmentDetails: {
         id: savedAppointment.appointmentId,
-        dateTime: meetingDateTime.format('MMMM D, YYYY [at] h:mm A [GST]'),
+        dateTime: meetingDateTime.format('YYYY-MM-DDTHH:mm:ss'),
         doctor: {
           name: doctorData.doctorName,
-          department: doctorData.doctorDepartment.departmentName
+          department: doctorData.doctorDepartment.departmentName,
+          languages: doctorData.doctorLanguage,
+          shift: doctorData.doctorShift
         },
         duration: duration
       }
@@ -154,6 +117,25 @@ async function bookMeeting(functionArgs) {
       message: 'Failed to book appointment: ' + error.message
     });
   }
+}
+
+function isWithinWorkingHours(startDateTime, duration, shift) {
+  const endDateTime = startDateTime.clone().add(duration, 'minutes');
+  const startHour = startDateTime.hour();
+  const endHour = endDateTime.hour();
+
+  // Skip weekends
+  if (startDateTime.day() === 0 || startDateTime.day() === 6) {
+    return false;
+  }
+
+  if (shift === 'Day') {
+    return startHour >= 9 && endHour <= 17;
+  } else if (shift === 'Night') {
+    return (startHour >= 18 || startHour < 6) && (endHour >= 18 || endHour <= 6);
+  }
+  
+  return false;
 }
 
 module.exports = bookMeeting;
