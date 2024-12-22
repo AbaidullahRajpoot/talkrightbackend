@@ -107,7 +107,7 @@ function isWithinWorkingHours(startDateTime, duration, shift) {
   console.log('isWithinWorkingHours function called');
   const endDateTime = startDateTime.clone().add(duration, 'minutes');
   const startHour = startDateTime.hour();
-  const endHour = endDateTime.hour();
+  const endHour = endDateTime.hour(); 
 
   // Skip weekends
   if (startDateTime.day() === 0 || startDateTime.day() === 6) {
