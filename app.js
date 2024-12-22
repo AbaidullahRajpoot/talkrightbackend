@@ -4,6 +4,7 @@ require('colors');
 const express = require('express');
 const ExpressWs = require('express-ws');
 const cors = require("cors");
+const moment = require('moment');
 
 const { GptService } = require('./services/gpt-service');
 const { StreamService } = require('./services/stream-service');
@@ -43,6 +44,9 @@ ConnectionDb(DATABASE_URL, (err, db) => {
   }
 });
 
+console.log('Current time:', moment().format('YYYY-MM-DD HH:mm:ss'));
+
+
 //===============================End Database Connection ============================
 
 //=====================================Routes========================================
@@ -67,6 +71,7 @@ app.post('/incoming', (req, res) => {
 
 app.ws('/connection', (ws) => {
   try {
+    
     ws.on('error', console.error);
     let streamSid;
     let callSid;
