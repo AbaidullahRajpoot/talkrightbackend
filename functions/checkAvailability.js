@@ -4,6 +4,7 @@ const Appointment = require('../model/AppointmentModel');
 
 async function checkAvailability(functionArgs) {
   const { slots, doctor } = functionArgs;
+  console.log('checkAvailability function called');
 
   if (!doctor) {
     return JSON.stringify({
@@ -103,6 +104,7 @@ async function checkAvailability(functionArgs) {
 }
 
 function isWithinWorkingHours(startDateTime, duration, shift) {
+  console.log('isWithinWorkingHours function called');
   const endDateTime = startDateTime.clone().add(duration, 'minutes');
   const startHour = startDateTime.hour();
   const endHour = endDateTime.hour();
@@ -122,6 +124,7 @@ function isWithinWorkingHours(startDateTime, duration, shift) {
 }
 
 async function findNextAvailableSlots(doctorData, startDateTime, duration) {
+  console.log('findNextAvailableSlots function called');
   const availableSlots = [];
   let currentDateTime = startDateTime.clone().startOf('hour');
   const endOfWeek = startDateTime.clone().add(7, 'days');

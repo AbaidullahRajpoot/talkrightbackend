@@ -4,6 +4,7 @@ const Appointment = require('../model/AppointmentModel');
 
 async function bookMeeting(functionArgs) {
   const { dateTime, email, duration = 30, confirmedDateTime, confirmedEmail, doctor } = functionArgs;
+  console.log('bookMeeting function called');
   
   try {
     const currentDateTime = moment().tz('Asia/Dubai');
@@ -120,6 +121,7 @@ async function bookMeeting(functionArgs) {
 }
 
 function isWithinWorkingHours(startDateTime, duration, shift) {
+  console.log('isWithinWorkingHours function called');
   const endDateTime = startDateTime.clone().add(duration, 'minutes');
   const startHour = startDateTime.hour();
   const endHour = endDateTime.hour();
