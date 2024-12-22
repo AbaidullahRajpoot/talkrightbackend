@@ -124,28 +124,13 @@ function isWithinWorkingHours(startDateTime, duration, shift) {
 }
 
 async function findNextAvailableSlots(doctorData, startDateTime, duration) {
-  console.log('Current time (UTC):', startDateTime.format('YYYY-MM-DD HH:mm:ss'));
-  console.log('Current time (Dubai):', startDateTime.tz('Asia/Dubai').format('YYYY-MM-DD HH:mm:ss'));
-  console.log('Doctor shift:', doctorData.doctorShift);
-
+  console.log('findNextAvailableSlots function called');
   const availableSlots = [];
-  let currentDateTime = startDateTime.clone().startOf('hour').add(1, 'hour');
+  let currentDateTime = startDateTime.clone().startOf('hour');
   const endOfWeek = startDateTime.clone().add(7, 'days');
 
-  // For night shift, adjust start time to 9 PM if before 9 PM
-  if (doctorData.doctorShift === 'Night') {
-    console.log('Before adjustment:', currentDateTime.format('HH:mm'));
-    if (currentDateTime.hour() < 21) {
-      currentDateTime.hour(21).minute(0).second(0);
-    }
-    console.log('After adjustment:', currentDateTime.format('HH:mm'));
-  }
-
   while (currentDateTime.isBefore(endOfWeek) && availableSlots.length < 3) {
-    const isWithinHours = isWithinWorkingHours(currentDateTime, duration, doctorData.doctorShift);
-    console.log(`Checking time ${currentDateTime.format('HH:mm')}, within hours: ${isWithinHours}`);
-    
-    if (isWithinHours) {
+    if (isWithinWorkingHours(currentDateTime, duration, doctorData.doctorShift)) {
       const endDateTime = currentDateTime.clone().add(duration, 'minutes');
       
       // Check for existing appointments
@@ -170,14 +155,7 @@ async function findNextAvailableSlots(doctorData, startDateTime, duration) {
         });
       }
     }
-    
-    // For night shift, handle day boundary
-    if (doctorData.doctorShift === 'Night' && currentDateTime.hour() === 6) {
-      currentDateTime.add(15, 'hours');
-      console.log('Jumped to next night shift:', currentDateTime.format('HH:mm'));
-    } else {
-      currentDateTime.add(30, 'minutes');
-    }
+    currentDateTime.add(30, 'minutes');
   }
 
   return availableSlots;
