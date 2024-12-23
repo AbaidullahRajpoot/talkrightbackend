@@ -122,12 +122,12 @@ function isWithinWorkingHours(startDateTime, duration, shift) {
   if (shift === 'Day') {
     return startHour >= 9 && endHour <= 17;
   } else if (shift === 'Night') {
-    // For night shift (9 PM - 5 AM)
+    // Night shift is from 21:00 (9 PM) to 05:00 (5 AM)
     if (startHour >= 21) {
-      // Starting after 9 PM
-      return endHour >= 21 || endHour <= 5;
+      // For slots starting at or after 9 PM
+      return true;
     } else if (startHour < 5) {
-      // Starting after midnight but before 5 AM
+      // For slots starting after midnight but before 5 AM
       return endHour <= 5;
     }
     return false;
@@ -139,16 +139,29 @@ function isWithinWorkingHours(startDateTime, duration, shift) {
 async function findNextAvailableSlots(doctorData, startDateTime, duration) {
   console.log('findNextAvailableSlots function called');
   const availableSlots = [];
-  let currentDateTime = startDateTime.clone().startOf('hour');
-  const endOfWeek = startDateTime.clone().add(7, 'days');
+  let currentDateTime = startDateTime.clone();
 
-  while (currentDateTime.isBefore(endOfWeek) && availableSlots.length < 3) {
+  // For night shift, ensure we start at 9 PM
+  if (doctorData.doctorShift === 'Night') {
+    // If current time is before 9 PM, start from 9 PM today
+    if (currentDateTime.hour() < 21) {
+      currentDateTime.hour(21).minute(0).second(0);
+    }
+    // If current time is between 5 AM and 9 PM, start from next 9 PM
+    else if (currentDateTime.hour() >= 5 && currentDateTime.hour() < 21) {
+      currentDateTime.hour(21).minute(0).second(0);
+    }
+    // If current time is between 9 PM and 5 AM, use current time rounded to next 30 min
+    else {
+      currentDateTime.minutes(Math.ceil(currentDateTime.minutes() / 30) * 30);
+    }
+  }
+
+  const endOfSearch = startDateTime.clone().add(7, 'days');
+
+  while (currentDateTime.isBefore(endOfSearch) && availableSlots.length < 3) {
     if (isWithinWorkingHours(currentDateTime, duration, doctorData.doctorShift)) {
       const endDateTime = currentDateTime.clone().add(duration, 'minutes');
-      
-      // Convert times to UTC for database comparison
-      const utcStart = currentDateTime.clone().utc();
-      const utcEnd = endDateTime.clone().utc();
 
       // Check for existing appointments
       const existingAppointment = await Appointment.findOne({
@@ -156,10 +169,8 @@ async function findNextAvailableSlots(doctorData, startDateTime, duration) {
         status: { $nin: ['cancelled'] },
         $or: [
           {
-            $and: [
-              { appointmentDateTime: { $lte: utcEnd.toDate() } },
-              { endDateTime: { $gt: utcStart.toDate() } }
-            ]
+            appointmentDateTime: { $lt: endDateTime.toDate() },
+            endDateTime: { $gt: currentDateTime.toDate() }
           }
         ]
       });
@@ -167,13 +178,10 @@ async function findNextAvailableSlots(doctorData, startDateTime, duration) {
       console.log('Checking slot:', {
         start: currentDateTime.format('YYYY-MM-DD HH:mm:ss'),
         end: endDateTime.format('YYYY-MM-DD HH:mm:ss'),
-        utcStart: utcStart.format('YYYY-MM-DD HH:mm:ss'),
-        utcEnd: utcEnd.format('YYYY-MM-DD HH:mm:ss'),
         hasConflict: !!existingAppointment
       });
 
       if (!existingAppointment) {
-        // Only add slots that are within working hours and have no conflicts
         availableSlots.push({
           startTime: currentDateTime.toDate(),
           endTime: endDateTime.toDate(),
@@ -189,11 +197,9 @@ async function findNextAvailableSlots(doctorData, startDateTime, duration) {
     }
     currentDateTime.add(30, 'minutes');
 
-    // For night shift, if we pass 5 AM, jump to 9 PM of the same day
-    if (doctorData.doctorShift === 'Night' && 
-        currentDateTime.hour() >= 6 && 
-        currentDateTime.hour() < 5) {
-      currentDateTime.hour(5).minute(0).second(0);
+    // For night shift, if we pass 5 AM, jump to next 9 PM
+    if (doctorData.doctorShift === 'Night' && currentDateTime.hour() >= 5) {
+      currentDateTime.add(1, 'day').hour(21).minute(0).second(0);
     }
   }
 
