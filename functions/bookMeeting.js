@@ -119,7 +119,7 @@ async function bookMeeting(functionArgs) {
     });
   }
 }
-
+ 
 function isWithinWorkingHours(startDateTime, duration, shift) {
   console.log('isWithinWorkingHours function called');
   const endDateTime = startDateTime.clone().add(duration, 'minutes');
