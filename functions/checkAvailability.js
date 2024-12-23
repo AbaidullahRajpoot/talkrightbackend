@@ -104,7 +104,7 @@ async function checkAvailability(functionArgs) {
 }
 
 function isWithinWorkingHours(startDateTime, duration, shift) {
-  console.log('isWithinWorkingHours function called');
+  console.log('checkAvailability isWithinWorkingHours function called');
   const endDateTime = startDateTime.clone().add(duration, 'minutes');
   const startHour = startDateTime.hour();
   const endHour = endDateTime.hour(); 
