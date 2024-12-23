@@ -117,8 +117,6 @@ function isWithinWorkingHours(startDateTime, duration, shift) {
   if (shift === 'Day') {
     return startHour >= 9 && endHour <= 17;
   } else if (shift === 'Night') {
-    console.log('startHour', startHour);
-    console.log('endHour', endHour);
     return (startHour >= 21 || startHour < 5) && (endHour >= 21 || endHour <= 5);
   }
   
@@ -128,24 +126,7 @@ function isWithinWorkingHours(startDateTime, duration, shift) {
 async function findNextAvailableSlots(doctorData, startDateTime, duration) {
   console.log('findNextAvailableSlots function called');
   const availableSlots = [];
-  let currentDateTime = startDateTime.clone();
-
-  // For night shift, adjust the start time to 9 PM
-  if (doctorData.doctorShift === 'Night') {
-    // If current time is before 9 PM, start from 9 PM today
-    if (currentDateTime.hour() < 21) {
-      currentDateTime.hour(21).minute(0).second(0);
-    }
-    // If current time is after 5 AM, start from 9 PM today
-    else if (currentDateTime.hour() >= 5) {
-      currentDateTime.hour(21).minute(0).second(0);
-    }
-    // If between 9 PM and 5 AM, use current time rounded to next 30 minutes
-    else {
-      currentDateTime.minutes(Math.ceil(currentDateTime.minutes() / 30) * 30);
-    }
-  }
-
+  let currentDateTime = startDateTime.clone().startOf('hour');
   const endOfWeek = startDateTime.clone().add(7, 'days');
 
   while (currentDateTime.isBefore(endOfWeek) && availableSlots.length < 3) {
@@ -158,13 +139,6 @@ async function findNextAvailableSlots(doctorData, startDateTime, duration) {
         status: { $nin: ['cancelled'] },
         appointmentDateTime: { $lt: endDateTime.toDate() },
         endDateTime: { $gt: currentDateTime.toDate() }
-      });
-
-      console.log('Checking slot:', {
-        dateTime: currentDateTime.format('YYYY-MM-DD HH:mm:ss'),
-        shift: doctorData.doctorShift,
-        hour: currentDateTime.hour(),
-        hasConflict: !!existingAppointment
       });
 
       if (!existingAppointment) {
@@ -182,11 +156,6 @@ async function findNextAvailableSlots(doctorData, startDateTime, duration) {
       }
     }
     currentDateTime.add(30, 'minutes');
-
-    // For night shift, if we pass 5 AM, jump to next 9 PM
-    if (doctorData.doctorShift === 'Night' && currentDateTime.hour() >= 5) {
-      currentDateTime.add(1, 'day').hour(21).minute(0).second(0);
-    }
   }
 
   return availableSlots;
