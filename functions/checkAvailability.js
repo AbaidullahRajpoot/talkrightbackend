@@ -127,6 +127,7 @@ async function findNextAvailableSlots(doctorData, startDateTime, duration) {
   console.log('findNextAvailableSlots function called');
   const availableSlots = [];
   let currentDateTime = startDateTime.clone();
+  console.log('findNextAvailableSlots currentDateTime', currentDateTime);
 
   // For night shift, ensure we start at 9 PM
   if (doctorData.doctorShift === 'Night') {
