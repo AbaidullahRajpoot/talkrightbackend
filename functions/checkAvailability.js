@@ -139,13 +139,20 @@ async function findNextAvailableSlots(doctorData, startDateTime, duration) {
   const availableSlots = [];
   let currentDateTime = startDateTime.clone();
   
-  // If current time is before 9 PM, start from 9 PM today
-  if (currentDateTime.hour() < 21) {
-    currentDateTime.hour(21).minute(0).second(0);
-  }
-  // If current time is after 5 AM but before 9 PM, start from 9 PM today
-  else if (currentDateTime.hour() >= 5 && currentDateTime.hour() < 21) {
-    currentDateTime.hour(21).minute(0).second(0);
+  // Adjust start time based on shift
+  if (doctorData.doctorShift === 'Night') {
+    // If current time is before 9 PM, start from 9 PM today
+    if (currentDateTime.hour() < 21) {
+      currentDateTime.hour(21).minute(0).second(0);
+    }
+    // If current time is after 5 AM, start from 9 PM today
+    else if (currentDateTime.hour() >= 5) {
+      currentDateTime.hour(21).minute(0).second(0);
+    }
+    // If between 9 PM and 5 AM, use current time rounded to next 30 minutes
+    else {
+      currentDateTime.minutes(Math.ceil(currentDateTime.minutes() / 30) * 30);
+    }
   }
 
   const endOfWeek = startDateTime.clone().add(7, 'days');
@@ -177,6 +184,11 @@ async function findNextAvailableSlots(doctorData, startDateTime, duration) {
       }
     }
     currentDateTime.add(30, 'minutes');
+    
+    // For night shift, if we pass 5 AM, jump to 9 PM of the same day
+    if (doctorData.doctorShift === 'Night' && currentDateTime.hour() >= 5 && currentDateTime.hour() < 21) {
+      currentDateTime.hour(21).minute(0).second(0);
+    }
   }
 
   return availableSlots;
