@@ -117,6 +117,8 @@ function isWithinWorkingHours(startDateTime, duration, shift) {
   if (shift === 'Day') {
     return startHour >= 9 && endHour <= 17;
   } else if (shift === 'Night') {
+    console.log('startHour', startHour);
+    console.log('endHour', endHour);
     return (startHour >= 21 || startHour < 5) && (endHour >= 21 || endHour <= 5);
   }
   
