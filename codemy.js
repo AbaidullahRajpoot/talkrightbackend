@@ -140,7 +140,7 @@ async function findNextAvailableSlots(doctorData, startDateTime, duration) {
         appointmentDateTime: { $lt: endDateTime.toDate() },
         endDateTime: { $gt: currentDateTime.toDate() }
       });
-      console.log('existingAppointment', existingAppointment);
+
       if (!existingAppointment) {
         availableSlots.push({
           startTime: currentDateTime.toDate(),
