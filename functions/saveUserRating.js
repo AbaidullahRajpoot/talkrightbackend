@@ -1,6 +1,8 @@
 async function saveUserRating(params) {
     try {
         const { callQualityRating, needsAddressedRating } = params;
+        console.log('callQualityRating', callQualityRating);
+        console.log('needsAddressedRating', needsAddressedRating);
 
         // Create a new document in the 'ratings' collection
         const ratingData = {
