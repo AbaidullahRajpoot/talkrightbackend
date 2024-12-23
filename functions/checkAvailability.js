@@ -34,7 +34,7 @@ async function checkAvailability(functionArgs) {
       const { dateTime, duration } = slot;
       const startDateTime = moment.tz(dateTime, 'Asia/Dubai');
       console.log('startDateTime', startDateTime);
-      
+
       // Check if requested time is in the past
       if (startDateTime.isBefore(currentDateTime)) {
         return {
@@ -68,7 +68,7 @@ async function checkAvailability(functionArgs) {
       });
 
       const available = !existingAppointment;
-      
+
       return {
         dateTime: dateTime,
         available: available,
@@ -99,9 +99,9 @@ async function checkAvailability(functionArgs) {
 
   } catch (error) {
     console.error('Error in checkAvailability:', error);
-    return JSON.stringify({ 
-      status: 'failure', 
-      message: 'Error checking availability: ' + error.message 
+    return JSON.stringify({
+      status: 'failure',
+      message: 'Error checking availability: ' + error.message
     });
   }
 }
@@ -110,7 +110,7 @@ function isWithinWorkingHours(startDateTime, duration, shift) {
   console.log('isWithinWorkingHours function called');
   const endDateTime = startDateTime.clone().add(duration, 'minutes');
   const startHour = startDateTime.hour();
-  const endHour = endDateTime.hour(); 
+  const endHour = endDateTime.hour();
 
   // Skip weekends
   if (startDateTime.day() === 0 || startDateTime.day() === 6) {
@@ -122,7 +122,7 @@ function isWithinWorkingHours(startDateTime, duration, shift) {
   } else if (shift === 'Night') {
     return (startHour >= 21 || startHour < 5) && (endHour >= 21 || endHour <= 5);
   }
-  
+
   return false;
 }
 
@@ -168,12 +168,12 @@ async function findNextAvailableSlots(doctorData, startDateTime, duration) {
     if (doctorData.doctorShift === 'Day' && (startHour < 9 || endHour > 17)) {
       currentDateTime.add(30, 'minutes');
       continue;
-    } else if (doctorData.doctorShift === 'Night' && 
-              !((startHour >= 21 || startHour < 5) && (endHour >= 21 || endHour <= 5))) {
+    } else if (doctorData.doctorShift === 'Night' &&
+      !((startHour >= 21 || startHour < 5) && (endHour >= 21 || endHour <= 5))) {
       currentDateTime.add(30, 'minutes');
       continue;
     }
-    
+
     // Check for existing appointments
     const existingAppointment = await Appointment.findOne({
       doctor: doctorData._id,
@@ -195,7 +195,7 @@ async function findNextAvailableSlots(doctorData, startDateTime, duration) {
         }
       });
     }
-    
+
     currentDateTime.add(30, 'minutes');
   }
 

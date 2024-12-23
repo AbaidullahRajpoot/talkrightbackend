@@ -38,7 +38,8 @@ class DoctorController {
     //Get all doctors by department
     static async getAllDoctorsByDepartment(req, res) {
         try {
-            const doctors = await Doctor.find({ doctorDepartment: req.params.id });
+            const doctors = await Doctor.find({ doctorDepartment: req.params.departmentId });
+            console.log('doctors', doctors);
             if (!doctors) {
                 return res.status(404).json({ success: false, message: 'Doctors not found' });
             } else {
