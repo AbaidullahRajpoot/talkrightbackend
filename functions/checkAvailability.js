@@ -5,6 +5,8 @@ const Appointment = require('../model/AppointmentModel');
 async function checkAvailability(functionArgs) {
   const { slots, doctor } = functionArgs;
   console.log('checkAvailability function called');
+  console.log('slots', slots);
+  console.log('doctor', doctor);
 
   if (!doctor) {
     return JSON.stringify({
@@ -31,6 +33,7 @@ async function checkAvailability(functionArgs) {
     const results = await Promise.all(slots.map(async (slot) => {
       const { dateTime, duration } = slot;
       const startDateTime = moment.tz(dateTime, 'Asia/Dubai');
+      console.log('startDateTime', startDateTime);
       
       // Check if requested time is in the past
       if (startDateTime.isBefore(currentDateTime)) {
