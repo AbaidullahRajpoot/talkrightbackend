@@ -28,12 +28,25 @@ async function checkAvailability(functionArgs) {
       });
     }
 
+    // Explicitly set timezone to Dubai for all time comparisons
     const currentDateTime = moment().tz('Asia/Dubai');
 
     const results = await Promise.all(slots.map(async (slot) => {
       const { dateTime, duration } = slot;
+      // Ensure the slot time is also in Dubai timezone
       const startDateTime = moment.tz(dateTime, 'Asia/Dubai');
-      console.log('startDateTime', startDateTime);
+      
+      // Add a buffer time (e.g., 30 minutes) for near-term appointments
+      const bufferTime = currentDateTime.clone().add(30, 'minutes');
+      
+      // Check if requested time is too close to current time
+      if (startDateTime.isBefore(bufferTime)) {
+        return {
+          dateTime: dateTime,
+          available: false,
+          message: 'Appointment time must be at least 30 minutes in the future',
+        };
+      }
 
       // Check if requested time is in the past
       if (startDateTime.isBefore(currentDateTime)) {
