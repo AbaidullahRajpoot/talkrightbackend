@@ -117,7 +117,18 @@ function isWithinWorkingHours(startDateTime, duration, shift) {
   if (shift === 'Day') {
     return startHour >= 9 && endHour <= 17;
   } else if (shift === 'Night') {
-    return (startHour >= 21 || startHour < 5) && (endHour >= 21 || endHour <= 5);
+    // For appointments starting after 9 PM
+    if (startHour >= 21) {
+      // End time can be either before midnight or early morning next day
+      return endHour >= 21 || endHour <= 5;
+    }
+    // For appointments starting after midnight
+    if (startHour < 5) {
+      // End time must be before 5 AM
+      return endHour <= 5;
+    }
+    // Any other hour is outside night shift
+    return false;
   }
   
   return false;
@@ -126,7 +137,17 @@ function isWithinWorkingHours(startDateTime, duration, shift) {
 async function findNextAvailableSlots(doctorData, startDateTime, duration) {
   console.log('findNextAvailableSlots function called');
   const availableSlots = [];
-  let currentDateTime = startDateTime.clone().startOf('hour');
+  let currentDateTime = startDateTime.clone();
+  
+  // If current time is before 9 PM, start from 9 PM today
+  if (currentDateTime.hour() < 21) {
+    currentDateTime.hour(21).minute(0).second(0);
+  }
+  // If current time is after 5 AM but before 9 PM, start from 9 PM today
+  else if (currentDateTime.hour() >= 5 && currentDateTime.hour() < 21) {
+    currentDateTime.hour(21).minute(0).second(0);
+  }
+
   const endOfWeek = startDateTime.clone().add(7, 'days');
 
   while (currentDateTime.isBefore(endOfWeek) && availableSlots.length < 3) {
