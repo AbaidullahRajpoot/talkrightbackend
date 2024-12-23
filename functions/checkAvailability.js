@@ -129,32 +129,70 @@ async function findNextAvailableSlots(doctorData, startDateTime, duration) {
   let currentDateTime = startDateTime.clone().startOf('hour');
   const endOfWeek = startDateTime.clone().add(7, 'days');
 
-  while (currentDateTime.isBefore(endOfWeek) && availableSlots.length < 3) {
-    if (isWithinWorkingHours(currentDateTime, duration, doctorData.doctorShift)) {
-      const endDateTime = currentDateTime.clone().add(duration, 'minutes');
-      
-      // Check for existing appointments
-      const existingAppointment = await Appointment.findOne({
-        doctor: doctorData._id,
-        status: { $nin: ['cancelled'] },
-        appointmentDateTime: { $lt: endDateTime.toDate() },
-        endDateTime: { $gt: currentDateTime.toDate() }
-      });
+  // Set initial time based on shift
+  if (doctorData.doctorShift === 'Day') {
+    currentDateTime.hour(9); // Start at 9 AM
+  } else if (doctorData.doctorShift === 'Night') {
+    currentDateTime.hour(21); // Start at 9 PM
+  }
 
-      if (!existingAppointment) {
-        availableSlots.push({
-          startTime: currentDateTime.toDate(),
-          endTime: endDateTime.toDate(),
-          duration: duration,
-          doctor: {
-            name: doctorData.doctorName,
-            department: doctorData.doctorDepartment.departmentName,
-            languages: doctorData.doctorLanguage,
-            shift: doctorData.doctorShift
-          }
-        });
-      }
+  while (currentDateTime.isBefore(endOfWeek) && availableSlots.length < 3) {
+    // Skip to next day's shift start if current time is past shift end
+    if (doctorData.doctorShift === 'Day' && currentDateTime.hour() >= 17) {
+      currentDateTime.add(1, 'day').hour(9);
+      continue;
+    } else if (doctorData.doctorShift === 'Night' && currentDateTime.hour() >= 5) {
+      currentDateTime.add(1, 'day').hour(21);
+      continue;
     }
+
+    // Skip weekends
+    if (currentDateTime.day() === 0 || currentDateTime.day() === 6) {
+      currentDateTime.add(1, 'day');
+      if (doctorData.doctorShift === 'Day') {
+        currentDateTime.hour(9);
+      } else {
+        currentDateTime.hour(21);
+      }
+      continue;
+    }
+
+    // Skip if outside working hours
+    const endDateTime = currentDateTime.clone().add(duration, 'minutes');
+    const startHour = currentDateTime.hour();
+    const endHour = endDateTime.hour();
+
+    if (doctorData.doctorShift === 'Day' && (startHour < 9 || endHour > 17)) {
+      currentDateTime.add(30, 'minutes');
+      continue;
+    } else if (doctorData.doctorShift === 'Night' && 
+              !((startHour >= 21 || startHour < 5) && (endHour >= 21 || endHour <= 5))) {
+      currentDateTime.add(30, 'minutes');
+      continue;
+    }
+    
+    // Check for existing appointments
+    const existingAppointment = await Appointment.findOne({
+      doctor: doctorData._id,
+      status: { $nin: ['cancelled'] },
+      appointmentDateTime: { $lt: endDateTime.toDate() },
+      endDateTime: { $gt: currentDateTime.toDate() }
+    });
+
+    if (!existingAppointment) {
+      availableSlots.push({
+        startTime: currentDateTime.toDate(),
+        endTime: endDateTime.toDate(),
+        duration: duration,
+        doctor: {
+          name: doctorData.doctorName,
+          department: doctorData.doctorDepartment.departmentName,
+          languages: doctorData.doctorLanguage,
+          shift: doctorData.doctorShift
+        }
+      });
+    }
+    
     currentDateTime.add(30, 'minutes');
   }
 
