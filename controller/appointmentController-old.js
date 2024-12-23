@@ -158,6 +158,7 @@ class AppointmentController {
         }
     }
 
+    
     // Get appointments in calendar format
     static async getAppointmentsCalendar(req, res) {
         try {

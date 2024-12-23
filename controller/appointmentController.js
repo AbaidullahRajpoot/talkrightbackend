@@ -158,7 +158,7 @@ class AppointmentController {
         }
     }
 
-    
+
     // Get appointments in calendar format
     static async getAppointmentsCalendar(req, res) {
         try {
@@ -312,7 +312,7 @@ class AppointmentController {
             });
         }
     }
- 
+
     // Update appointment from calendar
     static async updateCalendarAppointment(req, res) {
         try {
@@ -401,9 +401,10 @@ class AppointmentController {
     // Delete appointment from calendar
     static async deleteCalendarAppointment(req, res) {
         try {
-            const { id } = req.params;
+            const { appointmentId } = req.params;
+            console.log(appointmentId)
 
-            const appointment = await Appointment.findById(id);
+            const appointment = await Appointment.findById(appointmentId);
             if (!appointment) {
                 return res.status(404).json({
                     success: false,
@@ -411,7 +412,7 @@ class AppointmentController {
                 });
             }
 
-            await Appointment.findByIdAndDelete(id);
+            await Appointment.findByIdAndDelete(appointmentId);
 
             res.status(200).json({
                 success: true,

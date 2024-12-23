@@ -41,7 +41,12 @@ router.delete('/calendar-events/:id', CalendarController.deleteEvent);
 router.post('/appointments', AppointmentController.createAppointment);
 router.get('/appointments/doctor/:doctorId', AppointmentController.getAppointmentsByDoctor);
 router.patch('/appointments/:appointmentId/status', AppointmentController.updateAppointmentStatus);
+// Appointment routes for calendar
 router.get('/get-appointments-calendar', AppointmentController.getAppointmentsCalendar);
+router.post('/appointments/calendar', AppointmentController.createAppointmentCalendar);
+router.put('/appointments/calendar/:appointmentId', AppointmentController.updateCalendarAppointment);
+router.delete('/appointments/calendar/:appointmentId', AppointmentController.deleteCalendarAppointment);
+
 
 // Calendar slot routes
 router.get('/calendar-slots/doctor/:doctorId', async (req, res) => {
