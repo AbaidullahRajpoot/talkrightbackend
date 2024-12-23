@@ -44,7 +44,7 @@ ConnectionDb(DATABASE_URL, (err, db) => {
   }
 });
 
-console.log('Current time:', moment().format('YYYY-MM-DD HH:mm:ss'));
+console.log('Current time:', moment().format('YYYY-MM-DD HH:mm:ss')); 
 
 
 //===============================End Database Connection ============================
