@@ -188,36 +188,12 @@ async function findNextAvailableSlots(doctorData, startDateTime, duration) {
     }
 
     // Check for existing appointments
-    // Check if current slot is available
     const existingAppointment = await Appointment.findOne({
       doctor: doctorData._id,
       status: { $nin: ['cancelled'] },
       appointmentDateTime: { $lt: endDateTime.toDate() },
       endDateTime: { $gt: currentDateTime.toDate() }
     });
-
-    // If slot not available, find next available slot within shift hours
-    if (existingAppointment) {
-      const shiftEndTime = doctorData.doctorShift === 'Day' ? 
-        currentDateTime.clone().hour(17) :
-        currentDateTime.clone().hour(5).add(1, 'day');
-        
-      while (currentDateTime.isBefore(shiftEndTime)) {
-        currentDateTime.add(30, 'minutes');
-        const nextEndDateTime = currentDateTime.clone().add(duration, 'minutes');
-        
-        const nextSlotBooked = await Appointment.findOne({
-          doctor: doctorData._id,
-          status: { $nin: ['cancelled'] },
-          appointmentDateTime: { $lt: nextEndDateTime.toDate() },
-          endDateTime: { $gt: currentDateTime.toDate() }
-        });
-        
-        if (!nextSlotBooked) {
-          break;
-        }
-      }
-    }
 
     if (!existingAppointment) {
       availableSlots.push({

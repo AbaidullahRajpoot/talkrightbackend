@@ -240,13 +240,46 @@ class AppointmentController {
                 });
             }
 
-            // Parse and validate the appointment time in Dubai timezone
-            const startDateTime = moment.tz(appointmentDateTime, 'YYYY-MM-DDTHH:mm:ss', 'Asia/Dubai');
-            const endDateTime = startDateTime.clone().add(30, 'minutes');
+            // Convert the times to Dubai timezone
+            const startDateTime = moment.tz(appointmentDateTime, 'Asia/Dubai');
+            const endDateTime = moment.tz(startDateTime.clone().add(30, 'minutes'), 'Asia/Dubai');
+            const currentDateTime = moment.tz('Asia/Dubai');
 
-            // Convert to UTC for database queries
-            const startDateTimeUTC = startDateTime.clone().utc();
-            const endDateTimeUTC = endDateTime.clone().utc();
+            // Check if appointment date is in the past
+            if (startDateTime.isBefore(currentDateTime)) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Cannot book appointments in the past'
+                });
+            }
+
+            // Check if appointment is on Sunday
+            if (startDateTime.day() === 0) { // 0 represents Sunday
+                return res.status(400).json({
+                    success: false,
+                    message: 'Appointments are not available on Sundays'
+                });
+            }
+
+            // Check doctor shift timing using Dubai hours
+            const dubaiHour = startDateTime.hour();
+            const dubaiEndHour = endDateTime.hour();
+
+            if (doctor.doctorShift === 'Night') {
+                if (!(dubaiHour >= 21 || dubaiHour < 5) || !(dubaiEndHour >= 21 || dubaiEndHour <= 5)) {
+                    return res.status(400).json({
+                        success: false,
+                        message: 'Night shift timing is from 9:00 PM to 5:00 AM and last appointment must end by 5:00 AM'
+                    });
+                }
+            } else if (doctor.doctorShift === 'Day') {
+                if (dubaiHour < 5 || dubaiHour >= 21 || dubaiEndHour < 5 || dubaiEndHour >= 21) {
+                    return res.status(400).json({
+                        success: false,
+                        message: 'Day shift timing is from 5:00 AM to 9:00 PM and last appointment must end by 9:00 PM'
+                    });
+                }
+            }
 
             // Check for overlapping appointments
             const existingAppointment = await Appointment.findOne({
@@ -254,8 +287,8 @@ class AppointmentController {
                 status: { $ne: 'cancelled' },
                 $or: [
                     {
-                        appointmentDateTime: { $lt: endDateTimeUTC.toDate() },
-                        endDateTime: { $gt: startDateTimeUTC.toDate() }
+                        appointmentDateTime: { $lt: endDateTime.toDate() },
+                        endDateTime: { $gt: startDateTime.toDate() }
                     }
                 ]
             });
@@ -267,7 +300,7 @@ class AppointmentController {
                 });
             }
 
-            // Create appointment with UTC times
+            // Create appointment
             const appointment = new Appointment({
                 appointmentId: `APT-${Math.random().toString(36).substr(2, 9).toUpperCase()}`,
                 doctor: doctorId,
@@ -275,20 +308,20 @@ class AppointmentController {
                     name: patientName,
                     email: patientEmail
                 },
-                appointmentDateTime: startDateTimeUTC.toDate(),
-                endDateTime: endDateTimeUTC.toDate(),
+                appointmentDateTime: startDateTime.toDate(),
+                endDateTime: endDateTime.toDate(),
                 duration: 30,
                 status: 'scheduled'
             });
 
             const savedAppointment = await appointment.save();
 
-            // Format the response with Dubai timezone
+            // Format the response to match frontend expectations
             const formattedAppointment = {
                 id: savedAppointment._id,
                 title: savedAppointment.patient.name,
-                start: moment(savedAppointment.appointmentDateTime).tz('Asia/Dubai').format(),
-                end: moment(savedAppointment.endDateTime).tz('Asia/Dubai').format(),
+                start: savedAppointment.appointmentDateTime,
+                end: savedAppointment.endDateTime,
                 extendedProps: {
                     email: savedAppointment.patient.email,
                     doctor: {
@@ -330,6 +363,23 @@ class AppointmentController {
             // Convert the times to Dubai timezone
             const startDateTime = moment.tz(start, 'Asia/Dubai');
             const endDateTime = moment.tz(end || startDateTime.clone().add(30, 'minutes'), 'Asia/Dubai');
+            const currentDateTime = moment.tz('Asia/Dubai');
+
+            // Check if appointment date is in the past
+            if (startDateTime.isBefore(currentDateTime)) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Cannot update to a past date'
+                });
+            }
+
+            // Check if appointment is on Sunday
+            if (startDateTime.day() === 0) { // 0 represents Sunday
+                return res.status(400).json({
+                    success: false,
+                    message: 'Appointments are not available on Sundays'
+                });
+            }
 
             const appointment = await Appointment.findById(id);
             if (!appointment) {
@@ -337,6 +387,35 @@ class AppointmentController {
                     success: false,
                     message: 'Appointment not found'
                 });
+            }
+
+            // Get doctor details for shift validation
+            const doctor = await Doctor.findById(extendedProps.doctor._id);
+            if (!doctor) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'Doctor not found'
+                });
+            }
+
+            // Check doctor shift timing using Dubai hours
+            const dubaiHour = startDateTime.hour();
+            const dubaiEndHour = endDateTime.hour();
+
+            if (doctor.doctorShift === 'Night') {
+                if (!(dubaiHour >= 21 || dubaiHour < 5) || !(dubaiEndHour >= 21 || dubaiEndHour <= 5)) {
+                    return res.status(400).json({
+                        success: false,
+                        message: 'Night shift timing is from 9:00 PM to 5:00 AM and last appointment must end by 5:00 AM'
+                    });
+                }
+            } else if (doctor.doctorShift === 'Day') {
+                if (dubaiHour < 5 || dubaiHour >= 21 || dubaiEndHour < 5 || dubaiEndHour >= 21) {
+                    return res.status(400).json({
+                        success: false,
+                        message: 'Day shift timing is from 5:00 AM to 9:00 PM and last appointment must end by 9:00 PM'
+                    });
+                }
             }
 
             // Check for overlapping appointments

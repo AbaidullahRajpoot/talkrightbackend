@@ -44,7 +44,7 @@ router.patch('/appointments/:appointmentId/status', AppointmentController.update
 // Appointment routes for calendar
 router.get('/get-appointments-calendar', AppointmentController.getAppointmentsCalendar);
 router.post('/appointments/calendar', AppointmentController.createAppointmentCalendar);
-router.put('/appointments/calendar/:appointmentId', AppointmentController.updateCalendarAppointment);
+router.put('/appointments/calendar/:id', AppointmentController.updateCalendarAppointment);
 router.delete('/appointments/calendar/:appointmentId', AppointmentController.deleteCalendarAppointment);
 
 
