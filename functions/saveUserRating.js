@@ -5,14 +5,15 @@ async function saveUserRating(params) {
         const { callQualityRating, needsAddressedRating } = params;
         console.log('callQualityRating', callQualityRating);
         console.log('needsAddressedRating', needsAddressedRating);
-        // Create a new rating document
-        const rating = new Rating({
-            callQualityRating,
-            needsAddressedRating
-        });
-        // Save to database
-        await rating.save();
 
+        // Create a new document in the 'ratings' collection
+        const ratingData = {
+            callQualityRating,
+            needsAddressedRating,
+            timestamp: new Date().toISOString()
+        };
+        const rating = new Rating(ratingData);
+        await rating.save();
 
         return {
             status: 'success',
@@ -28,4 +29,3 @@ async function saveUserRating(params) {
 }
 
 module.exports = saveUserRating; 
-
