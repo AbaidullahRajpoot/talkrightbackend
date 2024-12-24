@@ -1,16 +1,19 @@
+const Rating = require('../model/RatingModel');
+
 async function saveUserRating(params) {
     try {
         const { callQualityRating, needsAddressedRating } = params;
         console.log('callQualityRating', callQualityRating);
         console.log('needsAddressedRating', needsAddressedRating);
 
-        // Create a new document in the 'ratings' collection
-        const ratingData = {
+        // Create a new rating document
+        const rating = new Rating({
             callQualityRating,
-            needsAddressedRating,
-            timestamp: new Date().toISOString()
-        };
+            needsAddressedRating
+        });
 
+        // Save to database
+        await rating.save();
 
         return {
             status: 'success',
@@ -24,5 +27,3 @@ async function saveUserRating(params) {
         };
     }
 }
-
-module.exports = saveUserRating; 
